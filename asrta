@@ -1,0 +1,14 @@
+{
+    app = {
+        port = 12
+    }
+
+    local = {
+        uname = "dhash",
+        sec = {
+            luksCipher = "aes-plain64"
+            luksHash = "sha512"
+        }
+
+    }
+}

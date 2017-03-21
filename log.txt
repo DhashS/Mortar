@@ -1,0 +1,4 @@
+2017-03-21 15:07:00 [run-main-14] mortar.app.Mortar.main()
+TRACE: Arguments parsed, Namespace(config=null)
+2017-03-21 15:07:00 [run-main-14] mortar.server.Server.start()
+INFO: Server started on port 9000
