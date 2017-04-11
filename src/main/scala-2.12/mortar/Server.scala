@@ -11,7 +11,19 @@ import scala.io.StdIn
 import scala.concurrent.Future
 import java.io.File
 
+import scala.concurrent.forkjoin.ThreadLocalRandom
+import akka.actor.Actor
+import akka.actor.ActorLogging
+import akka.cluster.Cluster
+import akka.cluster.ddata.DistributedData
+import akka.cluster.ddata.ORSet
+import akka.cluster.ddata.ORSetKey
+import akka.cluster.ddata.Replicator
+import akka.cluster.ddata.Replicator._
 import akka.http.javadsl.server.PathMatchers
+
+import akka.actor._
+import akka.persistence._
 
 import scala.io.Source
 import squants.information.Bytes
@@ -34,88 +46,47 @@ class Server(config: ApplicationConfig)
   private implicit val materializer = ActorMaterializer()
   // needed for the future map/flatmap in the end
   private implicit val executionContext = system.dispatcher
+  val waitingActor = new WaitingActor
+  //TODO InProgressActor
+  //TODO DuplicityJob
+  //TODO RsyncJob
+  //TODO DoneActor
 
   def routes(): Route = {
     val route =
-      //How much free space does the server have
-      path("free_space") {
-        get {
-          val freeSpace: Future[Information] = Future { getFreeSpace }
-          onSuccess(freeSpace) { space =>
-            complete(FreeSpace(space))
-          }
-        }
-        //what is the server's pubkey
-      } ~ path("pubkey") {
-        get {
-          val key: Future[Option[String]] = Future {
-            try {
-              val pkeyfile = new File(config.local.sec.ssh.pub) //grab my pubkey
-              Some(Source.fromFile(pkeyfile).mkString)
-            } catch {
-              case e: Throwable =>
-                Logger.error("Unable to read pubkey")
-                Logger.error(e)
-                None
-            }
-          }
-          onSuccess(key) { k =>
-            k match {
-              case Some(pkey) => complete(PubKey(pkey))
-              case None => complete("No Pubkey")
-            }
-          }
-        }
-      } ~ path("allocate") {
+      path("connect") {
         post {
-          entity(as[SpaceRequest]) { req =>
-            val self_space: Future[Information] = Future { getFreeSpace }
-            onSuccess(self_space) { self =>
-              {
-                config.remote.find(x => x.pubkey == req.pub) match { //find the host that has the same pubkey
-                  case Some(remote) =>
-                    if (self - req.space > Bytes(0)) {
-                      complete(remote.hostname)
-                      //TODO check quota of that pubkey
-                      //TODO Allocate space
-                      //TODO send POST to requestor
-                      //TODO rollback
-                    } else {
-                      complete(StatusCodes.InsufficientStorage)
-                    }
-                  case None =>
-                    Logger.trace(
-                      s"Client with pubkey ${req.pub} tried to aquire ${req.space}, denied as pubkey didn't match")
-                    complete(StatusCodes.Forbidden)
+          entity(as[MortarRequest]) { req =>
+            config.remote.find(x => x.pubkey == req.key) match {
+              case Some(client_config) => {
+                if (getFreeSpace > Bytes(0)) {
+                  //TODO per-remote storage quota
+                  //TODO duplicity intent
+                  //TODO rsync intent
+                  client_config.security match {
+                    case "container" =>
+                      complete(client_config.toString) //TODO remove magic string
+                    case "sync" =>
+                      waitingActor.updateState(Cmd(client_config)) //Add to Actor system queue
+                      complete(StatusCodes.Accepted)
+                    case _ =>
+                      complete(client_config.toString) //echo since this should never happen
+                    //TODO make this never happen
+                  }
+                } else {
+                  complete(StatusCodes.InsufficientStorage)
                 }
               }
+              case None => complete(StatusCodes.Forbidden)
             }
           }
         }
-      } ~ path("allocate" / "done") {
-        post {
-          entity(as[AllocateResponse]) { req =>
-            if (req.status) {
-              complete("ast")
-              //TODO respond with intent
-              //TODO begin the rsync
-              //TODO send the response of a completed transfer and bytecount
-            } else {
-              //TODO fail
-              complete("lol")
-            }
-          }
-        }
-      } ~ path("sync") {
-        //TODO register sync state start
-        complete("TODO")
-      } ~ path("sync" / "done") {
-        //TODO register sync state complete
-        complete("TODO")
       }
     route
   }
   def getFreeSpace: Information = {
+    //TODO: add an in-transit flag
+    //So I can resolve the race condition between multiple data dumps
     Information(config.local.maxSpace).get - Bytes(
       new File(config.local.recvPath).getTotalSpace)
   }
@@ -128,4 +99,30 @@ class Server(config: ApplicationConfig)
       .flatMap(_.unbind())
       .onComplete(_ => system.terminate())
   }
+  def addToWaiting(conf: RemoteMachine): Unit = {}
+}
+
+//TODO state resolution FSM
+case class Cmd(data: RemoteMachine)
+case class QueueState(commands: List[RemoteMachine] = Nil) {
+  def updated(command: Cmd): QueueState = copy(command.data :: commands)
+  def size: Int = commands.length
+  override def toString: String = commands.toString
+}
+class WaitingActor extends PersistentActor {
+  override def persistenceId = "waiting-actor-1"
+  var state = QueueState()
+
+  def updateState(command: Cmd): Unit =
+    state = state.updated(command)
+
+  val receiveRecover: Receive = {
+    case command: Cmd => updateState(command)
+    case SnapshotOffer(_, snapshot: QueueState) => state = snapshot
+  }
+
+  val receiveCommand: Receive = {
+    case Cmd(data) =>
+  }
+
 }
