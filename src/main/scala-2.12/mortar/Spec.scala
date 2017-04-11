@@ -14,56 +14,26 @@ case class ApplicationConfig(app: AppConfig,
 
 case class AppConfig(port: Int, maxSpace: Option[String])
 
-case class Security(luksCipher: String,
-                    luksHash: String,
-                    leakSize: Boolean,
-                    ssh: SSHConfig)
+case class ServerSecurity(luksCipher: String,
+                          luksHash: String,
+                          leakSize: Boolean,
+                          ssh: SSHConfig)
 
 case class SSHConfig(pub: String, priv: String)
 
 case class RemoteMachine(hostname: String,
-                         interval: String,
-                         port: Int,
+                         security: String, //container, bare
                          toFile: Option[String],
                          recvFile: Option[String],
                          pubkey: String)
 
 case class LocalMachine(uname: String,
                         recvPath: String,
-                        toShoot: List[String],
-                        sec: Security,
+                        sec: ServerSecurity,
                         maxSpace: String,
                         known_hosts: Option[Boolean]) //TODO
 
-case class RSyncConfig(opts: Option[List[String]])
-
-//Web request safe SerDes
-final case class FreeSpace(space: Information) {
-  implicit object FreeSpaceFormat extends RootJsonFormat[FreeSpace] {
-    override def read(json: JsValue): FreeSpace = json match {
-      case JsObject(obj) =>
-        obj
-          .get("space")
-          .asInstanceOf[Option[Double]] match {
-          case Some(size) => FreeSpace(Bytes(size))
-          case None =>
-            deserializationError(
-              s"space field not in FreeSpace map, got ${obj.toMap} instead")
-        }
-      case x => deserializationError(s"Need an Information in Bytes, got ${x}")
-    }
-    override def write(obj: FreeSpace) =
-      JsObject(Map("space" -> JsNumber(obj.space.toBytes)))
-  }
-  def -(that: FreeSpace): FreeSpace = {
-    FreeSpace(this.space - that.space)
-  }
-}
-
-final case class PubKey(key: String)
-final case class SpaceRequest(pub: String, space: Information)
-final case class AllocateResponse(space: Information, status: Boolean)
-final case class SynchronizeResponse()
+final case class MortarRequest(key: String, space: Information, hash: String)
 
 trait MortarJsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
   implicit object InformationJsonFormat extends RootJsonFormat[Information] {
@@ -74,8 +44,5 @@ trait MortarJsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
 
     override def write(obj: Information) = JsNumber(obj.toBytes)
   }
-  implicit val FreeSpaceFmt = jsonFormat(FreeSpace, "space")
-  implicit val PubKeyFmt = jsonFormat1(PubKey)
-  implicit val SpaceRequestFmt = jsonFormat2(SpaceRequest)
-  implicit val AllocateResponseFmt = jsonFormat2(AllocateResponse)
+  implicit val MortarRequestFmt = jsonFormat3(MortarRequest)
 }
