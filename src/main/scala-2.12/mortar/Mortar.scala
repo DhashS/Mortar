@@ -29,28 +29,3 @@ object Mortar {
     server.start()
   }
 }
-
-/*
-  def freeSpace(them: RemoteMachine, size: Information): Boolean = {
-    //check self
-    //check quota
-    //send remote check
-  }
-  def allocateSpace(them: RemoteMachine, size: Information): Boolean = {
-    //build container on self
-    //send allocate request
-  }
-
-  def deAllocateSpace(them: RemoteMachine): Boolean = {
-    //Something went wrong
-    //deallocate space on self
-    //send deallocation message
-  }
-  def checkIfSigned(them: RemoteMachine, msg: SignedMessage): Message = {
-    //check against pubkey
-  }
-  def handleMessage(msg: Message) = {
-    //state machine
-  }
-  def allocateContainer(name: String)(implicit val sec: Security)
- */
