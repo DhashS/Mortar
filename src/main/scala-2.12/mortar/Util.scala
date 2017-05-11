@@ -49,7 +49,6 @@ object Util {
           throw new ConfigSyntaxException(e)
       }
     }
-
     config
   }
 }

@@ -21,7 +21,8 @@ case class ServerSecurity(luksCipher: String,
 
 case class SSHConfig(pub: String, priv: String)
 
-case class RemoteMachine(hostname: String,
+case class RemoteMachine(uname: String,
+                         hostname: String,
                          security: String, //container, bare
                          toFile: Option[String],
                          recvFile: Option[String],
@@ -33,7 +34,7 @@ case class LocalMachine(uname: String,
                         maxSpace: String,
                         known_hosts: Option[Boolean]) //TODO
 
-final case class MortarRequest(key: String, space: Information, hash: String)
+final case class MortarRequest(key: String, space: Information, path: String)
 
 trait MortarJsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
   implicit object InformationJsonFormat extends RootJsonFormat[Information] {
