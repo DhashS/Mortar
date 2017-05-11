@@ -1,0 +1,5 @@
+version "1"
+
+services:
+  mortar:
+    image: mortar:1.0
