@@ -26,7 +26,7 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-distributed-data-experimental" % "2.4.17",
   "com.typesafe.akka" %% "akka-persistence" % "2.4.17",
   "com.typesafe.akka" %% "akka-persistence-tck" % "2.4.17",
-  "org.iq80.leveldb" % "leveldb" % "0.7",
+  "org.iq80.leveldb" % "leveldb" % "0.9",
   "org.fusesource.leveldbjni" % "leveldbjni-all" % "1.8",
   "com.hootsuite" %% "akka-persistence-redis" % "0.7.0",
   "com.spotify" % "docker-client" % "3.5.13",

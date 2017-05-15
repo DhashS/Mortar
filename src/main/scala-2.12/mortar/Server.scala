@@ -8,20 +8,11 @@ import akka.stream.ActorMaterializer
 import squants.information.Information
 
 import scala.io.StdIn
-import scala.concurrent.Future
-import java.io.File
-
-import scala.concurrent.forkjoin.ThreadLocalRandom
+import java.io.{File, IOException}
 import akka.actor.Actor
 import akka.actor.ActorLogging
 import akka.cluster.Cluster
 import akka.cluster.ddata.DistributedData
-import akka.cluster.ddata.ORSet
-import akka.cluster.ddata.ORSetKey
-import akka.cluster.ddata.Replicator
-import akka.cluster.ddata.Replicator._
-import akka.http.javadsl.server.PathMatchers
-
 import akka.actor._
 import akka.persistence._
 
@@ -37,9 +28,10 @@ import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
 import mortar.spec._
 import org.pmw.tinylog.Logger
-import com.cedarsoftware.util.io.{JsonWriter, JsonParser}
+import com.cedarsoftware.util.io.{JsonParser, JsonWriter}
 
-import scala.sys.process.{ProcessLogger, Process}
+import scala.collection.JavaConverters._
+import scala.sys.process.{Process, ProcessLogger}
 
 class Server(config: ApplicationConfig)
     extends Directives
@@ -52,10 +44,6 @@ class Server(config: ApplicationConfig)
   val waitingActor = system.actorOf(Props[WaitingActor], "waiting-actor")
   val loggingActor = system.actorOf(Props[LogActor], "logging-actor")
   Logger.info("Actors initialized")
-  //TODO InProgressActor
-  //TODO DuplicityJob
-  //TODO RsyncJob
-  //TODO DoneActor
 
   def routes(): Route = {
     val route =
@@ -105,14 +93,14 @@ class Server(config: ApplicationConfig)
       .onComplete(_ => system.terminate())
     Logger.info("Server shutdown!")
   }
-  def addToWaiting(conf: RemoteMachine): Unit = {}
 }
 
 //TODO state resolution FSM
 case class RDiffRequest(machine: RemoteMachine,
                         req: MortarRequest,
                         config: ApplicationConfig)
-case class RDiffDone(machine: RemoteMachine)
+case class RDiffDone(req: RDiffRequest)
+case class RDiffFailure(machine: RemoteMachine, e: Exception)
 case class StdOutLogLine(line: String)
 case class StdErrLogLine(line: String)
 case class Cmd(data: RemoteMachine)
@@ -124,7 +112,7 @@ case class QueueState(commands: List[RDiffRequest] = Nil) {
   override def toString: String = commands.toString
 }
 class WaitingActor extends PersistentActor {
-  override def persistenceId = "waiting-actor-1"
+  override def persistenceId = "waiting-actor"
   var state = QueueState()
 
   def updateState(command: Evt): Unit =
@@ -141,30 +129,70 @@ class WaitingActor extends PersistentActor {
         case None =>
       }
       persist(Evt(data)) { event =>
-        Logger.trace(s"Persisting message ${JsonWriter.objectToJson(data)}")
+        Logger.trace(s"Persisting message ${JsonWriter
+          .objectToJson(data,
+                        Map(JsonWriter.PRETTY_PRINT -> true).asJava
+                          .asInstanceOf[java.util.Map[String, Object]])}")
         updateState(event)
         saveSnapshot(state)
         context.system.eventStream.publish(event)
         Logger.trace(s"Message persisted!")
+        val job =
+          context.actorOf(Props[RDiffActor], s"rdiff-${data.machine.hostname}")
+        job ! data
       }
   }
 }
+
 class RDiffActor extends Actor {
   override def receive: Receive = {
     //rdr and rdp pertain to the actual rdiff-backup
     case rdr: RDiffRequest => {
-      val mortarLog = context.actorSelection("logging-actor")
+      val mortarLog = context.actorSelection("/user/logging-actor")
+      val mortarWaitingActor = context.actorSelection("/user/waiting-actor")
       val logger = ProcessLogger(line => mortarLog ! StdOutLogLine(line),
                                  line => mortarLog ! StdErrLogLine(line))
       val rdp = Process(
-        s"rdiff-backup ${rdr.machine.uname}@${rdr.machine.hostname}::${rdr.req.path} " + s"${rdr.config.local.recvPath}")
+        s"rdiff-backup -b ${rdr.machine.uname}@${rdr.machine.hostname}::${rdr.req.path} "
+          + s"${rdr.config.local.recvPath}")
 
+      try {
+        val proc = rdp.run(logger)
+        val exit = proc.exitValue()
+        if (exit != 0) {
+          mortarLog ! RDiffFailure(
+            rdr.machine,
+            new IOException(s"rdiff-backup request for " +
+              s"${rdr.machine.hostname}::${rdr.req.path} exited with code ${exit}"))
+        } else {
+          mortarWaitingActor ! RDiffDone(rdr)
+          mortarLog ! RDiffDone(rdr)
+        }
+      } catch {
+        case e: Exception => {
+          mortarLog ! RDiffFailure(rdr.machine, e)
+          mortarWaitingActor ! RDiffFailure(rdr.machine, e)
+        }
+      } finally {
+        context stop self
+      }
     }
 
   }
 }
 class LogActor extends Actor {
   override def receive: Receive = {
-    case msg: RDiffDone => {}
+    case msg: RDiffFailure => {}
+    case msg: RDiffDone => {println(s"Rdiff successful for ${msg.req.machine.hostname}")}
+    case msg: StdErrLogLine => {
+      Logger.error(JsonWriter.objectToJson(msg,
+        Map(JsonWriter.PRETTY_PRINT -> true)
+          .asInstanceOf[java.util.Map[String, Object]]))
+    }
+    case msg: StdOutLogLine => {
+      Logger.trace(JsonWriter.objectToJson(msg,
+        Map(JsonWriter.PRETTY_PRINT -> true)
+          .asInstanceOf[java.util.Map[String, Object]]))
+    }
   }
 }
