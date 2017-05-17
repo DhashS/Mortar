@@ -1,17 +1,22 @@
 package mortar.util
 
+import java.io.File
 import java.nio.file.Path
 
-import mortar.spec.ApplicationConfig
-import com.lambdista.config.exception.{
-  ConfigSyntaxException,
-  ConversionException
-}
+import mortar.spec._
+import com.lambdista.config.exception.{ConfigSyntaxException, ConversionException}
 import org.pmw.tinylog.Logger
 import com.typesafe.config.{ConfigFactory, Config => TSConfig}
 import com.lambdista.config.Config
 import com.lambdista.config.typesafe._
 import com.cedarsoftware.util.io.JsonWriter
+import squants.information.{Bytes, Information}
+import akka.actor.Actor
+import akka.pattern.ask
+import akka.util.Timeout
+
+import scala.concurrent.{Await, Future}
+import scala.concurrent.duration._
 
 object Util {
   def config(fpath: Path): ApplicationConfig = {
@@ -51,4 +56,13 @@ object Util {
     }
     config
   }
+  def FreeSpace(cfg: ApplicationConfig, machine: RemoteMachine): Boolean = {
+    //TODO: add an in-transit flag
+    //So I can resolve the race condition between multiple data dumps
+    Information(cfg.local.maxSpace).get - Bytes(
+      new File(cfg.local.recvPath).getTotalSpace)
+    return true
+  }
 }
+
+
