@@ -36,11 +36,23 @@ case class LocalMachine(uname: String,
 
 final case class MortarRequest(key: String, space: Information, path: String)
 
+
+case class RDiffRequest(machine: RemoteMachine,
+                        req: MortarRequest,
+                        config: ApplicationConfig)
+case class RDiffDone(req: RDiffRequest)
+case class RDiffFailure(machine: RemoteMachine, e: Exception)
+case class MachineRequest()
+case class SpaceRequest(machine: RemoteMachine, config: ApplicationConfig, req: MortarRequest)
+case class StdOutLogLine(line: String)
+case class StdErrLogLine(line: String)
+case class Cmd(data: RemoteMachine)
+
 trait MortarJsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
   implicit object InformationJsonFormat extends RootJsonFormat[Information] {
     override def read(json: JsValue): Information = json match {
       case JsNumber(size) => Bytes(size)
-      case _ => deserializationError("Need an Information")
+      case _ => deserializationError("Need an Information, provide a bare JSON number of Bytes")
     }
 
     override def write(obj: Information) = JsNumber(obj.toBytes)
