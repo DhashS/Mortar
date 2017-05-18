@@ -41,10 +41,13 @@ object Server {
   // needed for the future map/flatmap in the end
   implicit val executionContext: ExecutionContext = system.dispatcher
   implicit val timeout = Timeout(60.seconds)
-  private val waitingActor = system.actorOf(Props[WaitingActor], "waiting-actor")
+  private val waitingActor =
+    system.actorOf(Props[WaitingActor], "waiting-actor")
   private val loggingActor = system.actorOf(Props[LogActor], "logging-actor")
-  private val spaceActor = system.actorOf(Props[FreeSpaceActor], "free-space-actor")
-  private val routerActor = system.actorOf(Props[RDiffRouterActor], "router-actor")
+  private val spaceActor =
+    system.actorOf(Props[FreeSpaceActor], "free-space-actor")
+  private val routerActor =
+    system.actorOf(Props[RDiffRouterActor], "router-actor")
 
 }
 class Server(config: ApplicationConfig)
@@ -64,9 +67,9 @@ class Server(config: ApplicationConfig)
             config.remote.find(x => x.pubkey == req.key) match {
               case Some(client_config) => {
                 val isSpace = Await
-                  .result(
-                    (spaceActor ? SpaceRequest(client_config, req)).mapTo[Boolean],
-                    60.seconds)
+                  .result((spaceActor ? SpaceRequest(client_config, req))
+                            .mapTo[Boolean],
+                          60.seconds)
                 if (isSpace) {
                   //TODO per-remote storage quota
                   //TODO duplicity intent
@@ -244,24 +247,20 @@ class FreeSpaceActor extends Actor {
   override def receive: Receive = {
     case req: SpaceRequest => {
       val mortarWaitingActor = context.actorSelection("/user/waiting-actor")
-      val totalSpaceInTransit = Promise[Information]
-      try {
-        val inProgress = (mortarWaitingActor ? MachineRequest)
-          .asInstanceOf[Future[List[RDiffRequest]]]
-          .flatMap(x =>
-            Future {
-              x.map(y => y.req.space).reduce((s1, s2) => s1 + s2)
-          })
-        totalSpaceInTransit success Await.result(inProgress, 60.seconds)
-      } catch {
-        case e: UnsupportedOperationException => { // this is when there are no pending jobs, the reduce fails
-          totalSpaceInTransit success Bytes(0)
-        }
+      var totalSpaceInTransit = Bytes(0)
+
+      val inProgress = Await.result(
+        (mortarWaitingActor ? MachineRequest).mapTo[List[RDiffRequest]],
+        60.seconds)
+      if (inProgress.nonEmpty) {
+        totalSpaceInTransit = inProgress
+          .map(x => x.req.space)
+          .sum
       }
-      val space = Await.result(totalSpaceInTransit.future, 60.seconds)
+
       val spaceLeftOnDevice = Bytes(
         new File(config.local.recvPath).getTotalSpace)
-      if (spaceLeftOnDevice - space - req.req.space > Bytes(0)) {
+      if (spaceLeftOnDevice - totalSpaceInTransit - req.req.space > Bytes(0)) {
         sender ! true
       } else {
         sender ! false
