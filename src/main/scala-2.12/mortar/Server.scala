@@ -1,36 +1,26 @@
 package mortar.app.MortarServer
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.Http
-import akka.stream.ActorMaterializer
-import squants.information.Information
-
-import scala.io.StdIn
 import java.io.{File, IOException}
 
-import akka.actor.Actor
-import akka.actor.ActorLogging
-import akka.cluster.Cluster
-import akka.cluster.ddata.DistributedData
-import akka.actor._
-import akka.persistence._
-import squants.information.Bytes
-import squants.information.Information
-import akka.http.scaladsl.server.Route
+import akka.actor.{Actor, ActorSystem, _}
+import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.server.Directives
+import akka.http.scaladsl.server.{Directives, Route}
+import akka.pattern.ask
+import akka.persistence._
+import akka.routing.ConsistentHashingPool
+import akka.stream.ActorMaterializer
 import akka.util.Timeout
+import com.cedarsoftware.util.io.JsonWriter
 import mortar.spec._
 import org.pmw.tinylog.Logger
-import com.cedarsoftware.util.io.{JsonParser, JsonWriter}
+import squants.information.Bytes
 
 import scala.collection.JavaConverters._
-import scala.concurrent.{Await, ExecutionContext, Future, Promise}
-import scala.util.{Failure, Success, Try}
-import scala.sys.process.{Process, ProcessLogger}
 import scala.concurrent.duration._
-import akka.pattern.ask
-import akka.routing.ConsistentHashingPool
+import scala.concurrent.{Await, ExecutionContext}
+import scala.io.StdIn
+import scala.sys.process.{Process, ProcessLogger}
 
 case class Evt(data: RDiffRequest)
 
@@ -237,7 +227,6 @@ class LogActor extends Actor {
 
 class FreeSpaceActor extends Actor {
   import Server.timeout
-  import Server.executionContext
 
   private val configActor = context.actorSelection("/user/config-actor")
   private val config = Await.result(
@@ -255,7 +244,7 @@ class FreeSpaceActor extends Actor {
       if (inProgress.nonEmpty) {
         totalSpaceInTransit = inProgress
           .map(x => x.req.space)
-          .sum
+          .reduce((x, y) => x + y) //can't use sum, since Information is not Numeric
       }
 
       val spaceLeftOnDevice = Bytes(
