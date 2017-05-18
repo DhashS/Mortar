@@ -4,6 +4,7 @@ import squants.information.{Bytes, Information}
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.marshalling.ToEntityMarshaller
 import akka.http.scaladsl.unmarshalling.FromEntityUnmarshaller
+import akka.routing.ConsistentHashingRouter.ConsistentHashable
 import spray.json._
 
 //Case classes to define application
@@ -37,13 +38,15 @@ case class LocalMachine(uname: String,
 final case class MortarRequest(key: String, space: Information, path: String)
 
 
-case class RDiffRequest(machine: RemoteMachine,
-                        req: MortarRequest,
-                        config: ApplicationConfig)
+case class RDiffRequest(machine: RemoteMachine, req: MortarRequest) extends ConsistentHashable {
+  override def consistentHashKey: String = machine.pubkey
+}
+
 case class RDiffDone(req: RDiffRequest)
 case class RDiffFailure(machine: RemoteMachine, e: Exception)
 case class MachineRequest()
-case class SpaceRequest(machine: RemoteMachine, config: ApplicationConfig, req: MortarRequest)
+case class ConfigRequest()
+case class SpaceRequest(machine: RemoteMachine, req: MortarRequest)
 case class StdOutLogLine(line: String)
 case class StdErrLogLine(line: String)
 case class Cmd(data: RemoteMachine)

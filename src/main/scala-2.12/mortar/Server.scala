@@ -2,7 +2,6 @@ package mortar.app.MortarServer
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-
 import akka.stream.ActorMaterializer
 import squants.information.Information
 
@@ -13,10 +12,8 @@ import akka.actor.Actor
 import akka.actor.ActorLogging
 import akka.cluster.Cluster
 import akka.cluster.ddata.DistributedData
-
 import akka.actor._
 import akka.persistence._
-
 import squants.information.Bytes
 import squants.information.Information
 import akka.http.scaladsl.server.Route
@@ -25,35 +22,39 @@ import akka.http.scaladsl.server.Directives
 import akka.util.Timeout
 import mortar.spec._
 import org.pmw.tinylog.Logger
-import com.cedarsoftware.util.io.{JsonWriter, JsonParser}
+import com.cedarsoftware.util.io.{JsonParser, JsonWriter}
 
 import scala.collection.JavaConverters._
-import scala.concurrent.{Await, Future, Promise}
-import scala.util.{Try,Success,Failure}
-
+import scala.concurrent.{Await, ExecutionContext, Future, Promise}
+import scala.util.{Failure, Success, Try}
 import scala.sys.process.{Process, ProcessLogger}
 import scala.concurrent.duration._
 import akka.pattern.ask
+import akka.routing.ConsistentHashingPool
 
 case class Evt(data: RDiffRequest)
-
 
 object Server {
   // needed to run the route
   implicit val system = ActorSystem("mortar-http-server-actorsystem")
   implicit val materializer = ActorMaterializer()
   // needed for the future map/flatmap in the end
-  implicit val executionContext = system.dispatcher
+  implicit val executionContext: ExecutionContext = system.dispatcher
   implicit val timeout = Timeout(60.seconds)
-  val waitingActor = system.actorOf(Props[WaitingActor], "waiting-actor")
-  val loggingActor = system.actorOf(Props[LogActor], "logging-actor")
-  val spaceActor = system.actorOf(Props[FreeSpaceActor], "free-space-actor")
-  Logger.info("Actors initialized")
+  private val waitingActor = system.actorOf(Props[WaitingActor], "waiting-actor")
+  private val loggingActor = system.actorOf(Props[LogActor], "logging-actor")
+  private val spaceActor = system.actorOf(Props[FreeSpaceActor], "free-space-actor")
+  private val routerActor = system.actorOf(Props[RDiffRouterActor], "router-actor")
 
 }
-class Server(config: ApplicationConfig) extends Directives with MortarJsonSupport {
+class Server(config: ApplicationConfig)
+    extends Directives
+    with MortarJsonSupport {
 
   import Server._
+  private val configActor =
+    system.actorOf(Props(new ConfigActor(config)), "config-actor")
+  Logger.info("Actors initialized")
 
   def routes(): Route = {
     val route =
@@ -62,8 +63,10 @@ class Server(config: ApplicationConfig) extends Directives with MortarJsonSuppor
           entity(as[MortarRequest]) { req =>
             config.remote.find(x => x.pubkey == req.key) match {
               case Some(client_config) => {
-                val isSpace = Await.result(spaceActor ? SpaceRequest(client_config, config, req), 60.seconds)
-                  .asInstanceOf[Boolean]
+                val isSpace = Await
+                  .result(
+                    (spaceActor ? SpaceRequest(client_config, req)).mapTo[Boolean],
+                    60.seconds)
                 if (isSpace) {
                   //TODO per-remote storage quota
                   //TODO duplicity intent
@@ -72,7 +75,7 @@ class Server(config: ApplicationConfig) extends Directives with MortarJsonSuppor
                     case "container" =>
                       complete(client_config.toString) //TODO remove magic string
                     case "sync" =>
-                      waitingActor ! RDiffRequest(client_config, req, config) //Add to Actor system queue
+                      waitingActor ! RDiffRequest(client_config, req) //Add to Actor system queue
                       complete(StatusCodes.Accepted)
                     case _ =>
                       complete(client_config.toString) //echo since this should never happen
@@ -89,12 +92,6 @@ class Server(config: ApplicationConfig) extends Directives with MortarJsonSuppor
       }
     route
   }
-  def getFreeSpace: Information = {
-    //TODO: add an in-transit flag
-    //So I can resolve the race condition between multiple data dumps
-    Information(config.local.maxSpace).get - Bytes(
-      new File(config.local.recvPath).getTotalSpace)
-  }
   def start(): Unit = {
     val bind = Http()
       .bindAndHandle(routes(), "localhost", config.app.port) //TODO Https
@@ -107,23 +104,22 @@ class Server(config: ApplicationConfig) extends Directives with MortarJsonSuppor
   }
 }
 
-
-
-case class QueueState(commands: List[RDiffRequest] = Nil) {
-  def updated(command: Evt): QueueState = copy(command.data :: commands)
+case class WaitingJobsState(commands: List[RDiffRequest] = Nil) {
+  def updated(command: Evt): WaitingJobsState = copy(command.data :: commands)
   def size: Int = commands.length
   override def toString: String = commands.toString
 }
 class WaitingActor extends PersistentActor {
   override def persistenceId = "waiting-actor"
-  var state = QueueState()
+  private var state = WaitingJobsState()
+  private val RDiffRouterActor = context.actorSelection("/user/router-actor")
 
   def updateState(command: Evt): Unit =
     state = state.updated(command)
 
   val receiveRecover: Receive = {
     case evt: Evt => updateState(evt)
-    case SnapshotOffer(_, snapshot: QueueState) => state = snapshot
+    case SnapshotOffer(_, snapshot: WaitingJobsState) => state = snapshot
   }
   val receiveCommand: Receive = {
     case data: RDiffRequest => {
@@ -132,19 +128,15 @@ class WaitingActor extends PersistentActor {
         case None =>
       }
       persist(Evt(data)) { event =>
-        Logger.trace(s"Persisting message ${
-          JsonWriter
-            .objectToJson(data,
-              Map(JsonWriter.PRETTY_PRINT -> true).asJava
-                .asInstanceOf[java.util.Map[String, Object]])
-        }")
+        Logger.trace(s"Persisting message ${JsonWriter
+          .objectToJson(data,
+                        Map(JsonWriter.PRETTY_PRINT -> true).asJava
+                          .asInstanceOf[java.util.Map[String, Object]])}")
         updateState(event)
         saveSnapshot(state)
         context.system.eventStream.publish(event)
         Logger.trace(s"Message persisted!")
-        val job =
-          context.actorOf(Props[RDiffActor], s"rdiff-${data.machine.hostname}")
-        job ! data
+        RDiffRouterActor ! data
       }
     }
     case MachineRequest => {
@@ -153,7 +145,37 @@ class WaitingActor extends PersistentActor {
   }
 }
 
+class ConfigActor(config: ApplicationConfig) extends Actor {
+  override def receive: Receive = {
+    case ConfigRequest => {
+      sender ! config
+    }
+  }
+}
+
+class RDiffRouterActor extends Actor {
+  import Server.timeout
+  private val configActor = context.actorSelection("/user/config-actor")
+  private val config = Await.result(
+    (configActor ? ConfigRequest).mapTo[ApplicationConfig],
+    60.seconds)
+  private val router = context.actorOf(
+    ConsistentHashingPool(config.remote.length).props(Props[RDiffActor]),
+    "routing-actor")
+  override def receive: Receive = {
+    case rdr: RDiffRequest => {
+      router ! rdr
+    }
+  }
+}
+
 class RDiffActor extends Actor {
+  import Server.timeout
+  private val configActor = context.actorSelection("/user/config-actor")
+  private val config = Await.result(
+    (configActor ? ConfigRequest).mapTo[ApplicationConfig],
+    60.seconds)
+
   override def receive: Receive = {
     //rdr and rdp pertain to the actual rdiff-backup
     case rdr: RDiffRequest => {
@@ -163,7 +185,7 @@ class RDiffActor extends Actor {
                                  line => mortarLog ! StdErrLogLine(line))
       val rdp = Process(
         s"rdiff-backup -b ${rdr.machine.uname}@${rdr.machine.hostname}::${rdr.req.path} "
-          + s"${rdr.config.local.recvPath}")
+          + s"${config.local.recvPath}")
 
       try {
         val proc = rdp.run(logger)
@@ -182,13 +204,11 @@ class RDiffActor extends Actor {
           mortarLog ! RDiffFailure(rdr.machine, e)
           mortarWaitingActor ! RDiffFailure(rdr.machine, e)
         }
-      } finally {
-        context stop self
       }
     }
-
   }
 }
+
 class LogActor extends Actor {
   override def receive: Receive = {
     case msg: RDiffFailure => {}
@@ -196,16 +216,18 @@ class LogActor extends Actor {
       println(s"Rdiff successful for ${msg.req.machine.hostname}")
     }
     case msg: StdErrLogLine => {
-      Logger.error(JsonWriter.objectToJson(msg,
-        Map(JsonWriter.PRETTY_PRINT -> true)
-          .asJava
-          .asInstanceOf[java.util.Map[String, Object]]))
+      Logger.error(
+        JsonWriter.objectToJson(
+          msg,
+          Map(JsonWriter.PRETTY_PRINT -> true).asJava
+            .asInstanceOf[java.util.Map[String, Object]]))
     }
     case msg: StdOutLogLine => {
-      Logger.trace(JsonWriter.objectToJson(msg,
-        Map(JsonWriter.PRETTY_PRINT -> true)
-          .asJava
-          .asInstanceOf[java.util.Map[String, Object]]))
+      Logger.trace(
+        JsonWriter.objectToJson(
+          msg,
+          Map(JsonWriter.PRETTY_PRINT -> true).asJava
+            .asInstanceOf[java.util.Map[String, Object]]))
     }
   }
 }
@@ -213,6 +235,12 @@ class LogActor extends Actor {
 class FreeSpaceActor extends Actor {
   import Server.timeout
   import Server.executionContext
+
+  private val configActor = context.actorSelection("/user/config-actor")
+  private val config = Await.result(
+    (configActor ? ConfigRequest).mapTo[ApplicationConfig],
+    60.seconds)
+
   override def receive: Receive = {
     case req: SpaceRequest => {
       val mortarWaitingActor = context.actorSelection("/user/waiting-actor")
@@ -220,8 +248,9 @@ class FreeSpaceActor extends Actor {
       try {
         val inProgress = (mortarWaitingActor ? MachineRequest)
           .asInstanceOf[Future[List[RDiffRequest]]]
-          .flatMap(x => Future{
-            x.map(y => y.req.space).reduce((s1, s2) => s1 + s2)
+          .flatMap(x =>
+            Future {
+              x.map(y => y.req.space).reduce((s1, s2) => s1 + s2)
           })
         totalSpaceInTransit success Await.result(inProgress, 60.seconds)
       } catch {
@@ -230,7 +259,8 @@ class FreeSpaceActor extends Actor {
         }
       }
       val space = Await.result(totalSpaceInTransit.future, 60.seconds)
-      val spaceLeftOnDevice = Bytes(new File(req.config.local.recvPath).getTotalSpace)
+      val spaceLeftOnDevice = Bytes(
+        new File(config.local.recvPath).getTotalSpace)
       if (spaceLeftOnDevice - space - req.req.space > Bytes(0)) {
         sender ! true
       } else {
