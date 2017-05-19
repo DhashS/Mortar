@@ -1,4 +1,4 @@
-package mortar.spec
+package mortar
 
 import squants.information.{Bytes, Information}
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport

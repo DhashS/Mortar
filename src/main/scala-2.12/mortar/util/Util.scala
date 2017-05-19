@@ -1,4 +1,4 @@
-package mortar.util
+package mortar
 
 import java.io.File
 import java.nio.file.Path
@@ -55,13 +55,6 @@ object Util {
       }
     }
     config
-  }
-  def FreeSpace(cfg: ApplicationConfig, machine: RemoteMachine): Boolean = {
-    //TODO: add an in-transit flag
-    //So I can resolve the race condition between multiple data dumps
-    Information(cfg.local.maxSpace).get - Bytes(
-      new File(cfg.local.recvPath).getTotalSpace)
-    return true
   }
 }
 
