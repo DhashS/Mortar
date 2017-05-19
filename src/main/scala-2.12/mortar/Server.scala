@@ -56,14 +56,8 @@ class Server(config: ApplicationConfig)
           entity(as[MortarRequest]) { req =>
             config.remote.find(x => x.pubkey == req.key) match {
               case Some(client_config) => {
-                val isSpace = Await
-                  .result((spaceActor ? SpaceRequest(client_config, req))
-                            .mapTo[Boolean],
-                          60.seconds)
+                val isSpace = Await.result((spaceActor ? SpaceRequest(client_config, req)).mapTo[Boolean], 60.seconds)
                 if (isSpace) {
-                  //TODO per-remote storage quota
-                  //TODO duplicity intent
-                  //TODO rsync intent
                   client_config.security match {
                     case "container" =>
                       complete(client_config.toString) //TODO remove magic string
@@ -204,9 +198,16 @@ class RDiffActor extends Actor {
 
 class LogActor extends Actor {
   override def receive: Receive = {
-    case msg: RDiffFailure => {}
+    case msg: RDiffFailure => {
+      Logger.error(s"RDiff failed for ${msg.machine.hostname}\n" +
+        s"reason: ${msg.e.getMessage}\n" +
+        s"stacktrace: ${JsonWriter.objectToJson(msg.e.getStackTrace,
+          Map(JsonWriter.PRETTY_PRINT -> true)
+            .asJava
+            .asInstanceOf[java.util.Map[String, Object]])}")
+    }
     case msg: RDiffDone => {
-      println(s"Rdiff successful for ${msg.req.machine.hostname}")
+      Logger.info(s"RDiff successful for ${msg.req.machine.hostname}")
     }
     case msg: StdErrLogLine => {
       Logger.error(
