@@ -24,7 +24,7 @@ case class SSHConfig(pub: String, priv: String)
 
 case class RemoteMachine(uname: String,
                          hostname: String,
-                         security: String, //container, bare
+                         security: String, //container, bare TODO move to request
                          toFile: Option[String],
                          recvFile: Option[String],
                          pubkey: String)
@@ -35,7 +35,7 @@ case class LocalMachine(uname: String,
                         maxSpace: String,
                         known_hosts: Option[Boolean]) //TODO
 
-final case class MortarRequest(key: String, space: Information, path: String)
+final case class MortarRequest(key: String, space: Information, path: String) // TODO incorporate security
 
 
 case class RDiffRequest(machine: RemoteMachine, req: MortarRequest) extends ConsistentHashable {
