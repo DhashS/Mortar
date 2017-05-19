@@ -19,3 +19,7 @@ project/plugins/project/
 #Idea specific
 .idea/*
 .idea
+
+#project specific
+snapshots
+log.txt
