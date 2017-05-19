@@ -9,7 +9,7 @@ connectInput in run := true
 
 resolvers += Resolver.jcenterRepo
 
-mainClass in Compile := Some("mortar.app.Mortar")
+mainClass in Compile := Some("mortar.Mortar")
 
 libraryDependencies ++= Seq(
   "com.lambdista" %% "config" % "0.5.1",
@@ -22,10 +22,11 @@ libraryDependencies ++= Seq(
   "com.cedarsoftware" % "json-io" % "4.9.12",
   "com.typesafe.akka" %% "akka-http" % "10.0.5",
   "com.typesafe.akka" %% "akka-http-spray-json" % "10.0.5",
-  "com.typesafe.akka" %% "akka-cluster" % "2.4.17",
-  "com.typesafe.akka" %% "akka-distributed-data-experimental" % "2.4.17",
-  "com.typesafe.akka" %% "akka-persistence" % "2.4.17",
-  "com.typesafe.akka" %% "akka-persistence-tck" % "2.4.17",
+  "com.typesafe.akka" %% "akka-cluster" % "2.5.1",
+  "com.typesafe.akka" %% "akka-distributed-data" % "2.5.1",
+  "com.typesafe.akka" %% "akka-persistence" % "2.5.1",
+  "com.typesafe.akka" %% "akka-persistence-tck" % "2.5.1",
+  "com.typesafe.akka" %% "akka-remote" % "2.5.1",
   "org.iq80.leveldb" % "leveldb" % "0.9",
   "org.fusesource.leveldbjni" % "leveldbjni-all" % "1.8",
   "com.hootsuite" %% "akka-persistence-redis" % "0.7.0",
