@@ -1,11 +1,9 @@
-package mortar
+package mortar.spec
 
-import squants.information.{Bytes, Information}
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
-import akka.http.scaladsl.marshalling.ToEntityMarshaller
-import akka.http.scaladsl.unmarshalling.FromEntityUnmarshaller
 import akka.routing.ConsistentHashingRouter.ConsistentHashable
 import spray.json._
+import squants.information.{Bytes, Information}
 
 //Case classes to define application
 case class ApplicationConfig(app: AppConfig,
@@ -50,6 +48,8 @@ case class SpaceRequest(machine: RemoteMachine, req: MortarRequest)
 case class StdOutLogLine(line: String)
 case class StdErrLogLine(line: String)
 case class Cmd(data: RemoteMachine)
+case class Evt(data: RDiffRequest)
+
 
 trait MortarJsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
   implicit object InformationJsonFormat extends RootJsonFormat[Information] {

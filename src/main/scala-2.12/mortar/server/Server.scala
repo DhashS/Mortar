@@ -1,4 +1,4 @@
-package mortar
+package mortar.server
 
 import java.io.{File, IOException}
 
@@ -22,10 +22,9 @@ import scala.concurrent.{Await, ExecutionContext}
 import scala.io.StdIn
 import scala.sys.process.{Process, ProcessLogger}
 
-case class Evt(data: RDiffRequest)
-
 object Server {
   // needed to run the route
+
   implicit val system = ActorSystem("mortar-http-server-actorsystem")
   implicit val materializer = ActorMaterializer()
   // needed for the future map/flatmap in the end
@@ -52,6 +51,7 @@ class Server(config: ApplicationConfig)
   private val configActor =
     system.actorOf(Props(new ConfigActor(config)), "config-actor")
   Logger.info("Actors initialized")
+
 
   def routes(): Route = {
     val route =
@@ -198,6 +198,7 @@ class RDiffActor extends Actor {
    */
 
   import Server.timeout
+
   private val configActor = context.actorSelection("/user/config-actor")
   private val config = Await.result(
     (configActor ? ConfigRequest).mapTo[ApplicationConfig],
@@ -261,7 +262,6 @@ class LogActor extends Actor {
     }
     case msg: StdErrLogLine => {
       // Something has emitted a STDERR line
-      Logger.error(s"STDERR from ${JsonWriter.objectToJson(sender)}")
       Logger.error(
         JsonWriter.objectToJson(
           msg,
@@ -270,7 +270,6 @@ class LogActor extends Actor {
     }
     case msg: StdOutLogLine => {
       // Something has emitted a STDOUT line
-      Logger.trace(s"STDOUT from ${JsonWriter.objectToJson(sender)}")
       Logger.trace(
         JsonWriter.objectToJson(
           msg,
@@ -295,6 +294,7 @@ class FreeSpaceActor extends Actor {
   override def receive: Receive = {
     case req: SpaceRequest => {
       val mortarWaitingActor = context.actorSelection("/user/waiting-actor")
+
       var totalSpaceInTransit = Bytes(0)
 
       val inProgress = Await.result(
@@ -305,7 +305,6 @@ class FreeSpaceActor extends Actor {
           .map(x => x.req.space)
           .reduce((x, y) => x + y) //can't use sum, since Information is not Numeric
       }
-
       val spaceLeftOnDevice = Bytes(
         new File(config.local.recvPath).getTotalSpace)
       if (spaceLeftOnDevice - totalSpaceInTransit - req.req.space > Bytes(0)) { //is there space remaining in the quota

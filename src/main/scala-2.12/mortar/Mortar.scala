@@ -1,11 +1,11 @@
-package mortar.app
+package mortar
 
 import java.nio.file.Paths
 
 import net.sourceforge.argparse4j.ArgumentParsers
 import org.pmw.tinylog.Logger
-import mortar.util.{Util => util}
-import mortar.app.MortarServer._
+import mortar.util.Util
+import mortar.server.Server
 
 object Mortar {
   def main(args: Array[String]): Unit = {
@@ -22,7 +22,7 @@ object Mortar {
 
     //TODO config modification argument
 
-    implicit val config = util.config(Paths.get("application.conf"))
+    val config = Util.config(Paths.get("application.conf"))
 
     val server = new Server(config)
     server.start()

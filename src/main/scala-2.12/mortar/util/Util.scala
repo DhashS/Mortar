@@ -1,22 +1,15 @@
-package mortar
+package mortar.util
 
-import java.io.File
 import java.nio.file.Path
+import java.io.File
 
-import mortar.spec._
-import com.lambdista.config.exception.{ConfigSyntaxException, ConversionException}
-import org.pmw.tinylog.Logger
-import com.typesafe.config.{ConfigFactory, Config => TSConfig}
-import com.lambdista.config.Config
-import com.lambdista.config.typesafe._
 import com.cedarsoftware.util.io.JsonWriter
-import squants.information.{Bytes, Information}
-import akka.actor.Actor
-import akka.pattern.ask
-import akka.util.Timeout
-
-import scala.concurrent.{Await, Future}
-import scala.concurrent.duration._
+import com.lambdista.config.Config
+import com.lambdista.config.exception.{ConfigSyntaxException, ConversionException}
+import com.lambdista.config.typesafe._
+import com.typesafe.config.{ConfigFactory, Config => TSConfig}
+import mortar.spec._
+import org.pmw.tinylog.Logger
 
 object Util {
   def config(fpath: Path): ApplicationConfig = {
@@ -53,6 +46,10 @@ object Util {
           Logger.error(e)
           throw new ConfigSyntaxException(e)
       }
+    }
+    val recv = new File(config.local.recvPath)
+    if (!(recv.exists && recv.isDirectory)){
+      throw new ConfigSyntaxException(s"No recieving path folder exists at ${config.local.recvPath}")
     }
     config
   }
