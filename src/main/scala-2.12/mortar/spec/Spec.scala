@@ -18,7 +18,7 @@ case class ServerSecurity(luksCipher: String,
                           leakSize: Boolean,
                           ssh: SSHConfig)
 
-case class SSHConfig(pub: String, priv: String)
+case class SSHConfig(pub: String, priv: String, authorized_keys: String)
 
 case class RemoteMachine(uname: String,
                          hostname: String,
