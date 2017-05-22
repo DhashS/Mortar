@@ -1,6 +1,6 @@
 package mortar.server
 
-import java.io.{File, IOException}
+import java.io.File
 
 import akka.actor.{Actor, ActorSystem, _}
 import akka.http.scaladsl.Http
@@ -13,6 +13,8 @@ import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import com.cedarsoftware.util.io.JsonWriter
 import mortar.spec._
+import mortar.util.ConfigActor
+import mortar.util.Util.getConfig
 import org.pmw.tinylog.Logger
 import squants.information.Bytes
 
@@ -24,7 +26,6 @@ import scala.sys.process.{Process, ProcessLogger}
 
 object Server {
   // needed to run the route
-
   implicit val system = ActorSystem("mortar-http-server-actorsystem")
   implicit val materializer = ActorMaterializer()
   // needed for the future map/flatmap in the end
@@ -35,8 +36,7 @@ object Server {
   private val loggingActor = system.actorOf(Props[LogActor], "logging-actor")
   private val spaceActor =
     system.actorOf(Props[FreeSpaceActor], "free-space-actor")
-  private val routerActor =
-    system.actorOf(Props[RDiffRouterActor], "router-actor")
+  system.actorOf(Props[RDiffRouterActor], "router-actor")
 
 }
 class Server(config: ApplicationConfig)
@@ -48,16 +48,15 @@ class Server(config: ApplicationConfig)
    */
 
   import Server._
-  private val configActor =
-    system.actorOf(Props(new ConfigActor(config)), "config-actor")
-  Logger.info("Actors initialized")
-
+  system.actorOf(Props(new ConfigActor(config)), "config-actor")
+  loggingActor ! LogLine("Actors initialized")
 
   def routes(): Route = {
     val route =
       path("connect") {
         post {
           entity(as[MortarRequest]) { req =>
+            //TODO don't validate against the key in the request, validate by GETting the requestor's /pubkey route
             config.remote.find(x => x.pubkey == req.key) match {
               case Some(client_config) => {
                 val isSpace =
@@ -83,13 +82,18 @@ class Server(config: ApplicationConfig)
             }
           }
         }
-      }
+      } ~
+        path("pubkey") {
+          get {
+            complete(config.local.sec.ssh.pub)
+          }
+        }
     route
   }
   def start(): Unit = {
     val bind = Http()
       .bindAndHandle(routes(), "localhost", config.app.port) //TODO Https
-    Logger.info(s"Server started on port ${config.app.port}")
+    loggingActor ! LogLine(s"Server started on port ${config.app.port}")
     val line = StdIn.readLine() //TODO replace
     bind
       .flatMap(_.unbind())
@@ -107,15 +111,19 @@ case class WaitingJobsState(commands: List[RDiffRequest] = Nil) {
   def size: Int = commands.length
   override def toString: String = commands.toString
 }
-class WaitingActor extends PersistentActor {
+class WaitingActor extends PersistentActor with ActorLogging {
   /*
   This actor manages the persistent state of the application.
   It keeps an ordered list of to-be-filled requests, so that if the application is restarted
   the requests are restarted as well
    */
+  import Server.timeout
+
   override def persistenceId = "waiting-actor"
   private var state = WaitingJobsState()
-  private val RDiffRouterActor = context.actorSelection("/user/router-actor")
+  private val RDiffRouterActor = Await.result(
+    context.actorSelection("/user/router-actor").resolveOne,
+    60.seconds)
 
   def updateState(command: Evt): Unit =
     state = state.updated(command)
@@ -131,14 +139,14 @@ class WaitingActor extends PersistentActor {
         case None =>
       }
       persist(Evt(data)) { event =>
-        Logger.trace(s"Persisting message ${JsonWriter
+        log.debug(s"Persisting message ${JsonWriter
           .objectToJson(data,
                         Map(JsonWriter.PRETTY_PRINT -> true).asJava
                           .asInstanceOf[java.util.Map[String, Object]])}")
         updateState(event)
         saveSnapshot(state)
         context.system.eventStream.publish(event)
-        Logger.trace(s"Message persisted!")
+        log.debug(s"Message persisted!")
         RDiffRouterActor ! data
       }
     }
@@ -146,6 +154,7 @@ class WaitingActor extends PersistentActor {
       /*
       A RDiff job has completed, this logs it and removes it from the persistent state
      */
+
     } //TODO state modification
     case MachineRequest => {
       /*
@@ -156,26 +165,13 @@ class WaitingActor extends PersistentActor {
   }
 }
 
-class ConfigActor(config: ApplicationConfig) extends Actor {
-  /*
-  This is a simple actor to distribute the application configuration object on demand to other actors
-   */
-  override def receive: Receive = {
-    case ConfigRequest => {
-      sender ! config
-    }
-  }
-}
-
-class RDiffRouterActor extends Actor {
+class RDiffRouterActor extends Actor with ActorLogging {
   /*
   This actor is a router that spins a transfer actor per host and distributes jobs to them
    */
-  import Server.timeout
-  private val configActor = context.actorSelection("/user/config-actor")
-  private val config = Await.result(
-    (configActor ? ConfigRequest).mapTo[ApplicationConfig],
-    60.seconds)
+
+  private val config = getConfig
+
   private val router = context.actorOf(
     ConsistentHashingPool(config.remote.length).props(Props[RDiffActor]),
     "routing-actor")
@@ -191,7 +187,7 @@ class RDiffRouterActor extends Actor {
   }
 }
 
-class RDiffActor extends Actor {
+class RDiffActor extends Actor with ActorLogging {
   /*
   This actor is spun up for each host, and manages transfer requests for that host
   It currently manages a single RDiff job, and its associated failure modes
@@ -199,10 +195,7 @@ class RDiffActor extends Actor {
 
   import Server.timeout
 
-  private val configActor = context.actorSelection("/user/config-actor")
-  private val config = Await.result(
-    (configActor ? ConfigRequest).mapTo[ApplicationConfig],
-    60.seconds)
+  private val config = getConfig
 
   override def receive: Receive = {
     //rdr and rdp pertain to the actual rdiff-backup
@@ -210,10 +203,13 @@ class RDiffActor extends Actor {
       /*
       This manages a remote rdiff job to local storage
        */
-      val mortarLog = context.actorSelection("/user/logging-actor")
-      val mortarWaitingActor = context.actorSelection("/user/waiting-actor")
-      val logger = ProcessLogger(line => mortarLog ! StdOutLogLine(line),
-                                 line => mortarLog ! StdErrLogLine(line))
+
+      val mortarWaitingActor = Await.result(
+        context.actorSelection("/user/waiting-actor").resolveOne,
+        60.seconds)
+      val logger = ProcessLogger(
+        line => log.info(s"STDOUT for ${rdr.machine.hostname}: $line"),
+        line => log.error(s"STDERR for ${rdr.machine.hostname}: $line"))
       val rdp = Process(
         s"rdiff-backup -b ${rdr.machine.uname}@${rdr.machine.hostname}::${rdr.req.path} "
           + s"${config.local.recvPath}")
@@ -222,78 +218,52 @@ class RDiffActor extends Actor {
         val proc = rdp.run(logger)
         val exit = proc.exitValue()
         if (exit != 0) {
-          mortarLog ! RDiffFailure(
-            rdr.machine,
-            new IOException(s"rdiff-backup request for " +
-              s"${rdr.machine.hostname}::${rdr.req.path} exited with code $exit, check STDERR"))
+          val err =
+            s"rdiff-backup request for ${rdr.machine.hostname}::${rdr.req.path} exited with code $exit, check STDERR"
+          mortarWaitingActor ! RDiffFailure(rdr)
+          log.error(err)
         } else {
           mortarWaitingActor ! RDiffDone(rdr)
-          mortarLog ! RDiffDone(rdr)
+          log.info(
+            s"RDiff job for ${rdr.machine.hostname} completed successfully")
         }
       } catch {
         case e: Exception => {
-          mortarLog ! RDiffFailure(rdr.machine, e)
-          mortarWaitingActor ! RDiffFailure(rdr.machine, e)
+          log.error(s"RDiff job for ${rdr.machine.hostname} threw exception",
+                    e)
+          mortarWaitingActor ! RDiffFailure(rdr)
         }
       }
     }
   }
 }
 
-class LogActor extends Actor {
+class LogActor extends Actor with ActorLogging {
   /*
-  This actor gives me a centralized way to do logging.
-  It currently encapsulates tinylog, but can be extended to use ActorLogging
+  This actor gives me a centralized way to do logging, useful for non-actor logging
+  It currently encapsulates ActorLogging
    */
   override def receive: Receive = {
-    case msg: RDiffFailure => {
-      // A rdiff job has failed
-      Logger.error(
-        s"RDiff failed for ${msg.machine.hostname}\n" +
-          s"reason: ${msg.e.getMessage}\n" +
-          s"stacktrace: ${JsonWriter.objectToJson(
-            msg.e.getStackTrace,
-            Map(JsonWriter.PRETTY_PRINT -> true).asJava
-              .asInstanceOf[java.util.Map[String, Object]])}")
-    }
-    case msg: RDiffDone => {
-      // A rdiff job has completed successfully
-      Logger.info(s"RDiff successful for ${msg.req.machine.hostname}")
-    }
-    case msg: StdErrLogLine => {
-      // Something has emitted a STDERR line
-      Logger.error(
-        JsonWriter.objectToJson(
-          msg,
-          Map(JsonWriter.PRETTY_PRINT -> true).asJava
-            .asInstanceOf[java.util.Map[String, Object]]))
-    }
-    case msg: StdOutLogLine => {
-      // Something has emitted a STDOUT line
-      Logger.trace(
-        JsonWriter.objectToJson(
-          msg,
-          Map(JsonWriter.PRETTY_PRINT -> true).asJava
-            .asInstanceOf[java.util.Map[String, Object]]))
+    case msg: LogLine => {
+      log.info(msg.line)
     }
   }
 }
 
-class FreeSpaceActor extends Actor {
+class FreeSpaceActor extends Actor with ActorLogging {
   /*
   This actor checks whether free space exists to fulfill a request
   It checks all waiting jobs, all in progress jobs, and the quota specified in the config file
    */
   import Server.timeout
 
-  private val configActor = context.actorSelection("/user/config-actor")
-  private val config = Await.result(
-    (configActor ? ConfigRequest).mapTo[ApplicationConfig],
-    60.seconds)
+  private val config = getConfig
 
   override def receive: Receive = {
     case req: SpaceRequest => {
-      val mortarWaitingActor = context.actorSelection("/user/waiting-actor")
+      val mortarWaitingActor = Await.result(
+        context.actorSelection("/user/waiting-actor").resolveOne(),
+        60.seconds)
 
       var totalSpaceInTransit = Bytes(0)
 
@@ -307,9 +277,12 @@ class FreeSpaceActor extends Actor {
       }
       val spaceLeftOnDevice = Bytes(
         new File(config.local.recvPath).getTotalSpace)
-      if (spaceLeftOnDevice - totalSpaceInTransit - req.req.space > Bytes(0)) { //is there space remaining in the quota
+      val left = spaceLeftOnDevice - totalSpaceInTransit - req.req.space
+      if (left > Bytes(0)) { //is there space remaining in the quota
+        log.debug(s"$left space left on device")
         sender ! true
       } else {
+        log.error("No space left in on device!")
         sender ! false
       }
     }

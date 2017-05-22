@@ -1,17 +1,14 @@
 package mortar
 
-import java.net.InetAddress
 import java.nio.file.Paths
-import java.io.File
 
+import mortar.server.Server
+import mortar.util.Util
 import net.sourceforge.argparse4j.ArgumentParsers
 import org.pmw.tinylog.Logger
-import mortar.util.Util
-import mortar.server.Server
-
-import scala.io.Source
 
 object Mortar {
+
   def main(args: Array[String]): Unit = {
     //set up argparse
     val parser = ArgumentParsers

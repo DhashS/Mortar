@@ -1,15 +1,21 @@
 package mortar.util
 
-import java.nio.file.Path
 import java.io.File
+import java.nio.file.Path
 
+import akka.actor.{Actor, ActorContext, ActorLogging}
+import akka.pattern.ask
 import com.cedarsoftware.util.io.JsonWriter
 import com.lambdista.config.Config
 import com.lambdista.config.exception.{ConfigSyntaxException, ConversionException}
 import com.lambdista.config.typesafe._
 import com.typesafe.config.{ConfigFactory, Config => TSConfig}
+import mortar.server.Server
 import mortar.spec._
 import org.pmw.tinylog.Logger
+
+import scala.concurrent.Await
+import scala.concurrent.duration._
 
 object Util {
   def config(fpath: Path): ApplicationConfig = {
@@ -53,6 +59,26 @@ object Util {
     }
     config
   }
+  def getConfig(implicit context: ActorContext): ApplicationConfig = {
+    import Server._
+
+    Await.result(context
+      .actorSelection("/user/config-actor")
+      .resolveOne
+      .flatMap(_ ? ConfigRequest)
+      .mapTo[ApplicationConfig],
+      60.seconds)
+  }
 }
 
+class ConfigActor(config: ApplicationConfig) extends Actor with ActorLogging {
+  /*
+  This is a simple actor to distribute the application configuration object on demand to other actors
+   */
+  override def receive: Receive = {
+    case ConfigRequest => {
+      sender ! config
+    }
+  }
+}
 
