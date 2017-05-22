@@ -20,12 +20,13 @@ case class ServerSecurity(luksCipher: String,
 
 case class SSHConfig(pub: String, priv: String, authorized_keys: String)
 
-case class RemoteMachine(uname: String,
-                         hostname: String,
-                         security: String, //container, bare TODO move to request
-                         toFile: Option[String],
-                         recvFile: Option[String],
-                         pubkey: String)
+case class RemoteMachine(
+    uname: String,
+    hostname: String,
+    security: String, //container, bare TODO move to request
+    toFile: Option[String],
+    recvFile: Option[String],
+    pubkey: String)
 
 case class LocalMachine(uname: String,
                         recvPath: String,
@@ -34,11 +35,9 @@ case class LocalMachine(uname: String,
                         known_hosts: Option[Boolean]) //TODO
 
 final case class MortarRequest(key: String, space: Information, path: String) // TODO remove key in favor of GETting from remote server
-                                                                              // TODO add id that's unique
 
-
-
-case class RDiffRequest(machine: RemoteMachine, req: MortarRequest) extends ConsistentHashable {
+case class RDiffRequest(machine: RemoteMachine, req: MortarRequest, id: Int)
+    extends ConsistentHashable {
   override def consistentHashKey: String = machine.pubkey
 }
 
@@ -47,17 +46,18 @@ case class RDiffFailure(req: RDiffRequest)
 case class MachineRequest()
 case class ConfigRequest()
 case class SpaceRequest(machine: RemoteMachine, req: MortarRequest)
-case class StdOutLogLine(line: String)
-case class StdErrLogLine(line: String)
 case class Cmd(data: RemoteMachine)
-case class Evt(data: RDiffRequest)
+case class NewJob(data: RDiffRequest)
+case class JobDone(data: RDiffRequest)
 case class LogLine(line: String)
 
 trait MortarJsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
   implicit object InformationJsonFormat extends RootJsonFormat[Information] {
     override def read(json: JsValue): Information = json match {
       case JsNumber(size) => Bytes(size)
-      case _ => deserializationError("Need an Information, provide a bare JSON number of Bytes")
+      case _ =>
+        deserializationError(
+          "Need an Information, provide a bare JSON number of Bytes")
     }
 
     override def write(obj: Information) = JsNumber(obj.toBytes)

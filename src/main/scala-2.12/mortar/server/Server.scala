@@ -20,9 +20,10 @@ import squants.information.Bytes
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.{Await, ExecutionContext, Promise}
 import scala.io.StdIn
 import scala.sys.process.{Process, ProcessLogger}
+import scala.util.Random
 
 object Server {
   // needed to run the route
@@ -64,11 +65,32 @@ class Server(config: ApplicationConfig)
                                  .mapTo[Boolean],
                                60.seconds)
                 if (isSpace) {
+                  // generate a distinct id for the request
+                  //TODO wrap this in a future so it can async
+                  val id = Promise[Int]
+
+                  val inProcessIds =
+                    Await.result((waitingActor ? MachineRequest)
+                                   .mapTo[List[RDiffRequest]]
+                                   .map(lst => lst.map(_.id)),
+                                 60.seconds)
+                  while (!id.isCompleted) {
+                    val try_id = Random.nextInt()
+                    inProcessIds.find(_ == try_id) match {
+                      case None =>
+                        id success try_id
+                      case Some(_) => {} // duplicate ID
+                    }
+                  }
                   client_config.security match {
                     case "container" =>
                       complete(client_config.toString) //TODO remove magic string
                     case "sync" =>
-                      waitingActor ! RDiffRequest(client_config, req) //Add to Actor system queue
+                      //TODO support different backends
+                      waitingActor ! RDiffRequest(
+                        client_config,
+                        req,
+                        Await.result(id.future, 60.seconds)) //Add to Actor system queue
                       complete(StatusCodes.Accepted)
                     case _ =>
                       complete(client_config.toString) //echo since this should never happen
@@ -106,8 +128,11 @@ case class WaitingJobsState(commands: List[RDiffRequest] = Nil) {
   /*
   This class encapsulates the persistent state of the application
    */
-  def updated(command: Evt): WaitingJobsState =
-    copy(command.data :: commands) //TODO redo to actual structure (ordered list)
+  def add(command: NewJob): WaitingJobsState =
+    copy(command.data :: commands)
+  def remove(command: JobDone): WaitingJobsState =
+    copy(commands.dropWhile(_.id == command.data.id))
+
   def size: Int = commands.length
   override def toString: String = commands.toString
 }
@@ -125,36 +150,51 @@ class WaitingActor extends PersistentActor with ActorLogging {
     context.actorSelection("/user/router-actor").resolveOne,
     60.seconds)
 
-  def updateState(command: Evt): Unit =
-    state = state.updated(command)
+  def AddJob(command: NewJob): Unit =
+    state = state.add(command)
+
+  def RemoveJob(command: JobDone): Unit =
+    state = state.remove(command)
 
   val receiveRecover: Receive = {
-    case evt: Evt => updateState(evt)
+    case evt: NewJob => AddJob(evt)
+    case evt: JobDone => RemoveJob(evt)
     case SnapshotOffer(_, snapshot: WaitingJobsState) => state = snapshot
   }
   val receiveCommand: Receive = {
-    case data: RDiffRequest => {
-      state.commands.find(_ == data.machine) match {
-        case Some(machine) =>
-        case None =>
-      }
-      persist(Evt(data)) { event =>
+    case job: RDiffRequest => {
+      persist(NewJob(job)) { event =>
         log.debug(s"Persisting message ${JsonWriter
-          .objectToJson(data,
+          .objectToJson(job,
                         Map(JsonWriter.PRETTY_PRINT -> true).asJava
                           .asInstanceOf[java.util.Map[String, Object]])}")
-        updateState(event)
+        AddJob(event)
         saveSnapshot(state)
         context.system.eventStream.publish(event)
         log.debug(s"Message persisted!")
-        RDiffRouterActor ! data
+        RDiffRouterActor ! job
+        log.debug(
+          s"Job id ${job.id} for machine ${job.machine.hostname} added to queue.")
+
       }
     }
-    case req: RDiffDone => {
+    case done: RDiffDone => {
       /*
       A RDiff job has completed, this logs it and removes it from the persistent state
-     */
-
+       */
+      val donejob = done.req
+      persist(JobDone(donejob)) { event =>
+        log.debug(s"Persisting message ${JsonWriter
+          .objectToJson(donejob,
+                        Map(JsonWriter.PRETTY_PRINT -> true).asJava
+                          .asInstanceOf[java.util.Map[String, Object]])}")
+        RemoveJob(event)
+        saveSnapshot(state)
+        context.system.eventStream.publish(event)
+        log.debug("Message Persisted!")
+        log.debug(
+          s"Job id ${donejob.id} for machine ${donejob.machine.hostname} done!")
+      }
     } //TODO state modification
     case MachineRequest => {
       /*
@@ -215,6 +255,8 @@ class RDiffActor extends Actor with ActorLogging {
           + s"${config.local.recvPath}")
 
       try {
+        log.debug(
+          s"Starting RDiff job id ${rdr.id} for machine ${rdr.machine.hostname}")
         val proc = rdp.run(logger)
         val exit = proc.exitValue()
         if (exit != 0) {
