@@ -7,9 +7,12 @@ import akka.actor.{Actor, ActorContext, ActorLogging}
 import akka.pattern.ask
 import com.cedarsoftware.util.io.JsonWriter
 import com.lambdista.config.Config
-import com.lambdista.config.exception.{ConfigSyntaxException, ConversionException}
+import com.lambdista.config.exception.{
+  ConfigSyntaxException,
+  ConversionException
+}
 import com.lambdista.config.typesafe._
-import com.typesafe.config.{ConfigFactory, Config => TSConfig}
+import com.typesafe.config.ConfigFactory
 import mortar.server.Server
 import mortar.spec._
 import org.pmw.tinylog.Logger
@@ -48,14 +51,15 @@ object Util {
         case "sync" =>
         case _ =>
           val e =
-            s"Unexpected security type on client ${JsonWriter.objectToJson(cli)}\n key security must be either container or sync"
+            s"Unexpected security type on client ${Json.fromObject(cli)}\n key security must be either container or sync"
           Logger.error(e)
           throw new ConfigSyntaxException(e)
       }
     }
     val recv = new File(config.local.recvPath)
-    if (!(recv.exists && recv.isDirectory)){
-      throw new ConfigSyntaxException(s"No recieving path folder exists at ${config.local.recvPath}")
+    if (!(recv.exists && recv.isDirectory)) {
+      throw new ConfigSyntaxException(
+        s"No recieving path folder exists at ${config.local.recvPath}")
     }
     config
   }
@@ -63,11 +67,11 @@ object Util {
     import Server._
 
     Await.result(context
-      .actorSelection("/user/config-actor")
-      .resolveOne
-      .flatMap(_ ? ConfigRequest)
-      .mapTo[ApplicationConfig],
-      60.seconds)
+                   .actorSelection("/user/config-actor")
+                   .resolveOne
+                   .flatMap(_ ? ConfigRequest)
+                   .mapTo[ApplicationConfig],
+                 60.seconds)
   }
 }
 
@@ -82,3 +86,11 @@ class ConfigActor(config: ApplicationConfig) extends Actor with ActorLogging {
   }
 }
 
+object Json {
+  import scala.collection.JavaConverters.mapAsJavaMap
+  def fromObject(obj: Object): String = {
+    JsonWriter.objectToJson(obj,
+                            mapAsJavaMap(Map(JsonWriter.PRETTY_PRINT -> true))
+                              .asInstanceOf[java.util.Map[String, Object]])
+  }
+}

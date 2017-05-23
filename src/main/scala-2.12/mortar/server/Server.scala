@@ -11,19 +11,20 @@ import akka.persistence._
 import akka.routing.ConsistentHashingPool
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
-import com.cedarsoftware.util.io.JsonWriter
 import mortar.spec._
 import mortar.util.ConfigActor
 import mortar.util.Util.getConfig
 import org.pmw.tinylog.Logger
+import mortar.util.Json
 import squants.information.Bytes
 
-import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Promise}
 import scala.io.StdIn
 import scala.sys.process.{Process, ProcessLogger}
 import scala.util.Random
+
+
 
 object Server {
   // needed to run the route
@@ -37,7 +38,7 @@ object Server {
   private val loggingActor = system.actorOf(Props[LogActor], "logging-actor")
   private val spaceActor =
     system.actorOf(Props[FreeSpaceActor], "free-space-actor")
-  system.actorOf(Props[RDiffRouterActor], "router-actor")
+  system.actorOf(Props[JobRouterActor], "router-actor")
 
 }
 class Server(config: ApplicationConfig)
@@ -146,7 +147,7 @@ class WaitingActor extends PersistentActor with ActorLogging {
 
   override def persistenceId = "waiting-actor"
   private var state = WaitingJobsState()
-  private val RDiffRouterActor = Await.result(
+  private val JobRouter = Await.result(
     context.actorSelection("/user/router-actor").resolveOne,
     60.seconds)
 
@@ -164,15 +165,12 @@ class WaitingActor extends PersistentActor with ActorLogging {
   val receiveCommand: Receive = {
     case job: RDiffRequest => {
       persist(NewJob(job)) { event =>
-        log.debug(s"Persisting message ${JsonWriter
-          .objectToJson(job,
-                        Map(JsonWriter.PRETTY_PRINT -> true).asJava
-                          .asInstanceOf[java.util.Map[String, Object]])}")
+        log.debug(s"Persisting message ${Json.fromObject(job)}")
         AddJob(event)
         saveSnapshot(state)
         context.system.eventStream.publish(event)
         log.debug(s"Message persisted!")
-        RDiffRouterActor ! job
+        JobRouter ! job
         log.debug(
           s"Job id ${job.id} for machine ${job.machine.hostname} added to queue.")
 
@@ -184,10 +182,7 @@ class WaitingActor extends PersistentActor with ActorLogging {
        */
       val donejob = done.req
       persist(JobDone(donejob)) { event =>
-        log.debug(s"Persisting message ${JsonWriter
-          .objectToJson(donejob,
-                        Map(JsonWriter.PRETTY_PRINT -> true).asJava
-                          .asInstanceOf[java.util.Map[String, Object]])}")
+        log.debug(s"Persisting message ${Json.fromObject(donejob)}")
         RemoveJob(event)
         saveSnapshot(state)
         context.system.eventStream.publish(event)
@@ -205,7 +200,7 @@ class WaitingActor extends PersistentActor with ActorLogging {
   }
 }
 
-class RDiffRouterActor extends Actor with ActorLogging {
+class JobRouterActor extends Actor with ActorLogging {
   /*
   This actor is a router that spins a transfer actor per host and distributes jobs to them
    */

@@ -1,0 +1,91 @@
+/usr/lib/jvm/java-1.8.0-openjdk-amd64/bin/java -Didea.launcher.port=7533 -Didea.launcher.bin.path=/home/dhash/Downloads/idea-IC-163.13906.18/bin -Dfile.encoding=UTF-8 -classpath /usr/lib/jvm/java-1.8.0-openjdk-amd64/jre/lib/charsets.jar:/usr/lib/jvm/java-1.8.0-openjdk-amd64/jre/lib/ext/cldrdata.jar:/usr/lib/jvm/java-1.8.0-openjdk-amd64/jre/lib/ext/dnsns.jar:/usr/lib/jvm/java-1.8.0-openjdk-amd64/jre/lib/ext/icedtea-sound.jar:/usr/lib/jvm/java-1.8.0-openjdk-amd64/jre/lib/ext/jaccess.jar:/usr/lib/jvm/java-1.8.0-openjdk-amd64/jre/lib/ext/java-atk-wrapper.jar:/usr/lib/jvm/java-1.8.0-openjdk-amd64/jre/lib/ext/localedata.jar:/usr/lib/jvm/java-1.8.0-openjdk-amd64/jre/lib/ext/nashorn.jar:/usr/lib/jvm/java-1.8.0-openjdk-amd64/jre/lib/ext/sunec.jar:/usr/lib/jvm/java-1.8.0-openjdk-amd64/jre/lib/ext/sunjce_provider.jar:/usr/lib/jvm/java-1.8.0-openjdk-amd64/jre/lib/ext/sunpkcs11.jar:/usr/lib/jvm/java-1.8.0-openjdk-amd64/jre/lib/ext/zipfs.jar:/usr/lib/jvm/java-1.8.0-openjdk-amd64/jre/lib/jce.jar:/usr/lib/jvm/java-1.8.0-openjdk-amd64/jre/lib/jsse.jar:/usr/lib/jvm/java-1.8.0-openjdk-amd64/jre/lib/management-agent.jar:/usr/lib/jvm/java-1.8.0-openjdk-amd64/jre/lib/resources.jar:/usr/lib/jvm/java-1.8.0-openjdk-amd64/jre/lib/rt.jar:/home/dhash/projects/Mortar/target/scala-2.12/classes:/home/dhash/.ivy2/cache/com.cedarsoftware/json-io/bundles/json-io-4.9.12.jar:/home/dhash/.ivy2/cache/org.typelevel/squants_2.12/bundles/squants_2.12-1.2.0.jar:/home/dhash/.ivy2/cache/org.typelevel/macro-compat_2.12/jars/macro-compat_2.12-1.1.1.jar:/home/dhash/.ivy2/cache/org.tinylog/tinylog/jars/tinylog-1.2.jar:/home/dhash/.ivy2/cache/org.slf4j/slf4j-api/jars/slf4j-api-1.7.12.jar:/home/dhash/.ivy2/cache/org.scalatest/scalatest_2.12/bundles/scalatest_2.12-3.0.0.jar:/home/dhash/.ivy2/cache/org.scalaj/scalaj-http_2.12/jars/scalaj-http_2.12-2.3.0.jar:/home/dhash/.ivy2/cache/org.scalactic/scalactic_2.12/bundles/scalactic_2.12-3.0.0.jar:/home/dhash/.ivy2/cache/org.scala-stm/scala-stm_2.12/jars/scala-stm_2.12-0.8.jar:/home/dhash/.ivy2/cache/org.scala-lang.modules/scala-xml_2.12/bundles/scala-xml_2.12-1.0.5.jar:/home/dhash/.ivy2/cache/org.scala-lang.modules/scala-parser-combinators_2.12/bundles/scala-parser-combinators_2.12-1.0.4.jar:/home/dhash/.ivy2/cache/org.scala-lang.modules/scala-java8-compat_2.12/bundles/scala-java8-compat_2.12-0.8.0.jar:/home/dhash/.ivy2/cache/org.scala-lang/scala-reflect/jars/scala-reflect-2.12.1.jar:/home/dhash/.ivy2/cache/org.scala-lang/scala-library/jars/scala-library-2.12.1.jar:/home/dhash/.ivy2/cache/org.reactivestreams/reactive-streams/jars/reactive-streams-1.0.0.jar:/home/dhash/.ivy2/cache/org.ow2.asm/asm-util/jars/asm-util-5.0.3.jar:/home/dhash/.ivy2/cache/org.ow2.asm/asm-tree/jars/asm-tree-5.0.3.jar:/home/dhash/.ivy2/cache/org.ow2.asm/asm-commons/jars/asm-commons-5.0.3.jar:/home/dhash/.ivy2/cache/org.ow2.asm/asm-analysis/jars/asm-analysis-5.0.3.jar:/home/dhash/.ivy2/cache/org.ow2.asm/asm/jars/asm-5.0.3.jar:/home/dhash/.ivy2/cache/org.lmdbjava/lmdbjava/jars/lmdbjava-0.0.5.jar:/home/dhash/.ivy2/cache/org.javassist/javassist/bundles/javassist-3.18.1-GA.jar:/home/dhash/.ivy2/cache/org.iq80.leveldb/leveldb-api/jars/leveldb-api-0.9.jar:/home/dhash/.ivy2/cache/org.iq80.leveldb/leveldb/jars/leveldb-0.9.jar:/home/dhash/.ivy2/cache/org.hamcrest/hamcrest-core/jars/hamcrest-core-1.3.jar:/home/dhash/.ivy2/cache/org.glassfish.jersey.media/jersey-media-json-jackson/jars/jersey-media-json-jackson-2.19.jar:/home/dhash/.ivy2/cache/org.glassfish.jersey.ext/jersey-entity-filtering/jars/jersey-entity-filtering-2.19.jar:/home/dhash/.ivy2/cache/org.glassfish.jersey.core/jersey-common/jars/jersey-common-2.19.jar:/home/dhash/.ivy2/cache/org.glassfish.jersey.core/jersey-client/jars/jersey-client-2.19.jar:/home/dhash/.ivy2/cache/org.glassfish.jersey.connectors/jersey-apache-connector/jars/jersey-apache-connector-2.19.jar:/home/dhash/.ivy2/cache/org.glassfish.jersey.bundles.repackaged/jersey-guava/bundles/jersey-guava-2.19.jar:/home/dhash/.ivy2/cache/org.glassfish.hk2.external/javax.inject/jars/javax.inject-2.4.0-b25.jar:/home/dhash/.ivy2/cache/org.glassfish.hk2.external/aopalliance-repackaged/jars/aopalliance-repackaged-2.4.0-b25.jar:/home/dhash/.ivy2/cache/org.glassfish.hk2/osgi-resource-locator/jars/osgi-resource-locator-1.0.1.jar:/home/dhash/.ivy2/cache/org.glassfish.hk2/hk2-utils/jars/hk2-utils-2.4.0-b25.jar:/home/dhash/.ivy2/cache/org.glassfish.hk2/hk2-locator/jars/hk2-locator-2.4.0-b25.jar:/home/dhash/.ivy2/cache/org.glassfish.hk2/hk2-api/jars/hk2-api-2.4.0-b25.jar:/home/dhash/.ivy2/cache/org.fusesource.leveldbjni/leveldbjni-all/bundles/leveldbjni-all-1.8.jar:/home/dhash/.ivy2/cache/org.bouncycastle/bcprov-jdk15on/jars/bcprov-jdk15on-1.52.jar:/home/dhash/.ivy2/cache/org.bouncycastle/bcprov-jdk14/jars/bcprov-jdk14-1.55.jar:/home/dhash/.ivy2/cache/org.bouncycastle/bcpkix-jdk15on/jars/bcpkix-jdk15on-1.52.jar:/home/dhash/.ivy2/cache/org.bouncycastle/bcpg-jdk14/jars/bcpg-jdk14-1.55.jar:/home/dhash/.ivy2/cache/org.apache.httpcomponents/httpcore/jars/httpcore-4.4.1.jar:/home/dhash/.ivy2/cache/org.apache.httpcomponents/httpclient/jars/httpclient-4.5.jar:/home/dhash/.ivy2/cache/org.apache.commons/commons-compress/jars/commons-compress-1.9.jar:/home/dhash/.ivy2/cache/org.agrona/agrona/jars/agrona-0.9.5.jar:/home/dhash/.ivy2/cache/net.sourceforge.argparse4j/argparse4j/jars/argparse4j-0.7.0.jar:/home/dhash/.ivy2/cache/junit/junit/jars/junit-4.12.jar:/home/dhash/.ivy2/cache/javax.ws.rs/javax.ws.rs-api/jars/javax.ws.rs-api-2.0.1.jar:/home/dhash/.ivy2/cache/javax.annotation/javax.annotation-api/jars/javax.annotation-api-1.2.jar:/home/dhash/.ivy2/cache/io.spray/spray-json_2.12/bundles/spray-json_2.12-1.3.3.jar:/home/dhash/.ivy2/cache/io.netty/netty/bundles/netty-3.10.6.Final.jar:/home/dhash/.ivy2/cache/io.aeron/aeron-driver/jars/aeron-driver-1.2.5.jar:/home/dhash/.ivy2/cache/io.aeron/aeron-client/jars/aeron-client-1.2.5.jar:/home/dhash/.ivy2/cache/commons-logging/commons-logging/jars/commons-logging-1.2.jar:/home/dhash/.ivy2/cache/commons-lang/commons-lang/jars/commons-lang-2.6.jar:/home/dhash/.ivy2/cache/commons-codec/commons-codec/jars/commons-codec-1.9.jar:/home/dhash/.ivy2/cache/com.typesafe.akka/akka-testkit_2.12/jars/akka-testkit_2.12-2.5.1.jar:/home/dhash/.ivy2/cache/com.typesafe.akka/akka-stream_2.12/jars/akka-stream_2.12-2.5.1.jar:/home/dhash/.ivy2/cache/com.typesafe.akka/akka-remote_2.12/jars/akka-remote_2.12-2.5.1.jar:/home/dhash/.ivy2/cache/com.typesafe.akka/akka-protobuf_2.12/jars/akka-protobuf_2.12-2.5.1.jar:/home/dhash/.ivy2/cache/com.typesafe.akka/akka-persistence_2.12/jars/akka-persistence_2.12-2.5.1.jar:/home/dhash/.ivy2/cache/com.typesafe.akka/akka-persistence-tck_2.12/jars/akka-persistence-tck_2.12-2.5.1.jar:/home/dhash/.ivy2/cache/com.typesafe.akka/akka-parsing_2.12/jars/akka-parsing_2.12-10.0.5.jar:/home/dhash/.ivy2/cache/com.typesafe.akka/akka-http_2.12/jars/akka-http_2.12-10.0.5.jar:/home/dhash/.ivy2/cache/com.typesafe.akka/akka-http-spray-json_2.12/jars/akka-http-spray-json_2.12-10.0.5.jar:/home/dhash/.ivy2/cache/com.typesafe.akka/akka-http-core_2.12/jars/akka-http-core_2.12-10.0.5.jar:/home/dhash/.ivy2/cache/com.typesafe.akka/akka-distributed-data_2.12/jars/akka-distributed-data_2.12-2.5.1.jar:/home/dhash/.ivy2/cache/com.typesafe.akka/akka-contrib_2.12/jars/akka-contrib_2.12-2.4.12.jar:/home/dhash/.ivy2/cache/com.typesafe.akka/akka-cluster_2.12/jars/akka-cluster_2.12-2.5.1.jar:/home/dhash/.ivy2/cache/com.typesafe.akka/akka-cluster-tools_2.12/jars/akka-cluster-tools_2.12-2.4.12.jar:/home/dhash/.ivy2/cache/com.typesafe.akka/akka-actor_2.12/jars/akka-actor_2.12-2.5.1.jar:/home/dhash/.ivy2/cache/com.typesafe/ssl-config-core_2.12/bundles/ssl-config-core_2.12-0.2.1.jar:/home/dhash/.ivy2/cache/com.typesafe/config/bundles/config-1.3.1.jar:/home/dhash/.ivy2/cache/com.spotify/docker-client/jars/docker-client-3.5.13.jar:/home/dhash/.ivy2/cache/com.lihaoyi/sourcecode_2.12/jars/sourcecode_2.12-0.1.3.jar:/home/dhash/.ivy2/cache/com.lihaoyi/fastparse_2.12/jars/fastparse_2.12-0.4.2.jar:/home/dhash/.ivy2/cache/com.lihaoyi/fastparse-utils_2.12/jars/fastparse-utils_2.12-0.4.2.jar:/home/dhash/.ivy2/cache/com.lambdista/config_2.12/jars/config_2.12-0.5.1.jar:/home/dhash/.ivy2/cache/com.lambdista/config-util_2.12/jars/config-util_2.12-0.5.1.jar:/home/dhash/.ivy2/cache/com.lambdista/config-typesafe_2.12/jars/config-typesafe_2.12-0.5.1.jar:/home/dhash/.ivy2/cache/com.lambdista/config-core_2.12/jars/config-core_2.12-0.5.1.jar:/home/dhash/.ivy2/cache/com.hootsuite/akka-persistence-redis_2.12/jars/akka-persistence-redis_2.12-0.7.0.jar:/home/dhash/.ivy2/cache/com.google.guava/guava/bundles/guava-18.0.jar:/home/dhash/.ivy2/cache/com.github.jnr/jnr-x86asm/jars/jnr-x86asm-1.0.2.jar:/home/dhash/.ivy2/cache/com.github.jnr/jnr-unixsocket/jars/jnr-unixsocket-0.8.jar:/home/dhash/.ivy2/cache/com.github.jnr/jnr-posix/jars/jnr-posix-3.0.12.jar:/home/dhash/.ivy2/cache/com.github.jnr/jnr-ffi/jars/jnr-ffi-2.1.2.jar:/home/dhash/.ivy2/cache/com.github.jnr/jnr-enxio/jars/jnr-enxio-0.9.jar:/home/dhash/.ivy2/cache/com.github.jnr/jnr-constants/jars/jnr-constants-0.9.6.jar:/home/dhash/.ivy2/cache/com.github.jnr/jffi/jars/jffi-1.2.14-native.jar:/home/dhash/.ivy2/cache/com.github.jnr/jffi/jars/jffi-1.2.14.jar:/home/dhash/.ivy2/cache/com.github.etaty/rediscala_2.12/jars/rediscala_2.12-1.8.0.jar:/home/dhash/.ivy2/cache/com.fasterxml.jackson.module/jackson-module-jaxb-annotations/bundles/jackson-module-jaxb-annotations-2.6.0.jar:/home/dhash/.ivy2/cache/com.fasterxml.jackson.jaxrs/jackson-jaxrs-json-provider/bundles/jackson-jaxrs-json-provider-2.6.0.jar:/home/dhash/.ivy2/cache/com.fasterxml.jackson.jaxrs/jackson-jaxrs-base/bundles/jackson-jaxrs-base-2.6.0.jar:/home/dhash/.ivy2/cache/com.fasterxml.jackson.datatype/jackson-datatype-guava/bundles/jackson-datatype-guava-2.6.0.jar:/home/dhash/.ivy2/cache/com.fasterxml.jackson.core/jackson-databind/bundles/jackson-databind-2.6.0.jar:/home/dhash/.ivy2/cache/com.fasterxml.jackson.core/jackson-core/bundles/jackson-core-2.6.0.jar:/home/dhash/.ivy2/cache/com.fasterxml.jackson.core/jackson-annotations/bundles/jackson-annotations-2.6.0.jar:/home/dhash/.ivy2/cache/com.chuusai/shapeless_2.12/bundles/shapeless_2.12-2.3.2.jar:/home/dhash/Downloads/idea-IC-163.13906.18/lib/idea_rt.jar com.intellij.rt.execution.application.AppMain mortar.Mortar
+2017-05-22 08:16:51 [main] mortar.Mortar.main()
+TRACE: Arguments parsed, Namespace(config=null)
+2017-05-22 08:16:51 [main] mortar.Mortar.main()
+TRACE: Config parsed
+[DEBUG] [05/22/2017 08:16:52.346] [main] [EventStream(akka://mortar-http-server-actorsystem)] logger log1-Logging$DefaultLogger started
+[DEBUG] [05/22/2017 08:16:52.347] [main] [EventStream(akka://mortar-http-server-actorsystem)] Default Loggers started
+[INFO] [05/22/2017 08:16:52.401] [mortar-http-server-actorsystem-akka.actor.default-dispatcher-4] [akka://mortar-http-server-actorsystem/user/logging-actor] Actors initialized
+[DEBUG] [05/22/2017 08:16:52.459] [mortar-http-server-actorsystem-akka.actor.default-dispatcher-2] [akka.persistence.Persistence(akka://mortar-http-server-actorsystem)] Create plugin: akka.persistence.journal.leveldb akka.persistence.journal.leveldb.LeveldbJournal
+[DEBUG] [05/22/2017 08:16:52.482] [main] [AkkaSSLConfig(akka://mortar-http-server-actorsystem)] Initializing AkkaSSLConfig extension...
+[DEBUG] [05/22/2017 08:16:52.485] [main] [AkkaSSLConfig(akka://mortar-http-server-actorsystem)] buildHostnameVerifier: created hostname verifier: com.typesafe.sslconfig.ssl.DefaultHostnameVerifier@4066c471
+[DEBUG] [05/22/2017 08:16:52.510] [mortar-http-server-actorsystem-akka.actor.default-dispatcher-2] [akka.persistence.Persistence(akka://mortar-http-server-actorsystem)] Create plugin: akka.persistence.snapshot-store.local akka.persistence.snapshot.local.LocalSnapshotStore
+[INFO] [05/22/2017 08:16:53.184] [mortar-http-server-actorsystem-akka.actor.default-dispatcher-7] [akka://mortar-http-server-actorsystem/user/logging-actor] Server started on port 9000
+[DEBUG] [05/22/2017 08:16:53.207] [mortar-http-server-actorsystem-akka.actor.default-dispatcher-5] [akka://mortar-http-server-actorsystem/system/IO-TCP/selectors/$a/0] Successfully bound to /127.0.0.1:9000
+[DEBUG] [05/22/2017 08:17:01.869] [mortar-http-server-actorsystem-akka.actor.default-dispatcher-10] [akka://mortar-http-server-actorsystem/system/IO-TCP/selectors/$a/0] New connection accepted
+[DEBUG] [05/22/2017 08:17:02.077] [mortar-http-server-actorsystem-akka.actor.default-dispatcher-2] [akka://mortar-http-server-actorsystem/user/free-space-actor] 511979814900.0 B space left on device
+[DEBUG] [05/22/2017 08:17:02.098] [mortar-http-server-actorsystem-akka.persistence.dispatchers.default-plugin-dispatcher-13] [akka.serialization.Serialization(akka://mortar-http-server-actorsystem)] Using serializer [akka.persistence.serialization.MessageSerializer] for message [akka.persistence.PersistentImpl]
+[DEBUG] [05/22/2017 08:17:02.175] [mortar-http-server-actorsystem-akka.actor.default-dispatcher-7] [akka://mortar-http-server-actorsystem/user/waiting-actor] Persisting message {
+  "@type":"mortar.spec.RDiffRequest",
+  "machine":{
+    "uname":"dhash",
+    "hostname":"localhost",
+    "security":"sync",
+    "toFile":{
+      "@id":1,
+      "@type":"scala.None$"
+    },
+    "recvFile":{"@ref":1},
+    "pubkey":"foop"
+  },
+  "req":{
+    "key":"foop",
+    "space":{
+      "value":12.0,
+      "unit":{
+        "@type":"squants.information.Bytes$",
+        "symbol":"B"
+      }
+    },
+    "path":"/tmp/mortar-tests/from"
+  },
+  "id":-1503752762
+}
+[DEBUG] [05/22/2017 08:17:02.179] [mortar-http-server-actorsystem-akka.actor.default-dispatcher-7] [akka://mortar-http-server-actorsystem/user/waiting-actor] Message persisted!
+[DEBUG] [05/22/2017 08:17:02.195] [mortar-http-server-actorsystem-akka.actor.default-dispatcher-7] [akka://mortar-http-server-actorsystem/user/waiting-actor] Job id -1503752762 for machine localhost added to queue.
+[DEBUG] [05/22/2017 08:17:02.266] [mortar-http-server-actorsystem-akka.actor.default-dispatcher-2] [akka://mortar-http-server-actorsystem/user/router-actor/routing-actor/$a] Starting RDiff job id -1503752762 for machine localhost
+[ERROR] [05/22/2017 08:17:05.588] [Thread-3] [akka://mortar-http-server-actorsystem/user/router-actor/routing-actor/$a] STDERR for localhost: Warning: could not determine case sensitivity of source directory at
+[ERROR] [05/22/2017 08:17:05.589] [Thread-3] [akka://mortar-http-server-actorsystem/user/router-actor/routing-actor/$a] STDERR for localhost:   /tmp/mortar-tests/from
+[ERROR] [05/22/2017 08:17:05.589] [Thread-3] [akka://mortar-http-server-actorsystem/user/router-actor/routing-actor/$a] STDERR for localhost: because we can't find any files with letters in them.
+[ERROR] [05/22/2017 08:17:05.589] [Thread-3] [akka://mortar-http-server-actorsystem/user/router-actor/routing-actor/$a] STDERR for localhost: It will be treated as case sensitive.
+[INFO] [05/22/2017 08:17:05.907] [mortar-http-server-actorsystem-akka.actor.default-dispatcher-2] [akka://mortar-http-server-actorsystem/user/router-actor/routing-actor/$a] RDiff job for localhost completed successfully
+[WARN] [SECURITY][05/22/2017 08:17:05.912] [mortar-http-server-actorsystem-akka.persistence.dispatchers.default-plugin-dispatcher-13] [akka.serialization.Serialization(akka://mortar-http-server-actorsystem)] Using the default Java serializer for class [mortar.spec.JobDone] which is not recommended because of performance implications. Use another serializer or disable this warning using the setting 'akka.actor.warn-about-java-serializer-usage'
+[DEBUG] [05/22/2017 08:17:05.912] [mortar-http-server-actorsystem-akka.persistence.dispatchers.default-plugin-dispatcher-13] [akka.serialization.Serialization(akka://mortar-http-server-actorsystem)] Using serializer [akka.serialization.JavaSerializer] for message [mortar.spec.JobDone]
+[DEBUG] [05/22/2017 08:17:05.932] [mortar-http-server-actorsystem-akka.actor.default-dispatcher-2] [akka://mortar-http-server-actorsystem/user/waiting-actor] Persisting message {
+  "@type":"mortar.spec.RDiffRequest",
+  "machine":{
+    "uname":"dhash",
+    "hostname":"localhost",
+    "security":"sync",
+    "toFile":{
+      "@id":1,
+      "@type":"scala.None$"
+    },
+    "recvFile":{"@ref":1},
+    "pubkey":"foop"
+  },
+  "req":{
+    "key":"foop",
+    "space":{
+      "value":12.0,
+      "unit":{
+        "@type":"squants.information.Bytes$",
+        "symbol":"B"
+      }
+    },
+    "path":"/tmp/mortar-tests/from"
+  },
+  "id":-1503752762
+}
+[DEBUG] [05/22/2017 08:17:05.934] [mortar-http-server-actorsystem-akka.actor.default-dispatcher-2] [akka://mortar-http-server-actorsystem/user/waiting-actor] Message Persisted!
+[DEBUG] [05/22/2017 08:17:05.934] [mortar-http-server-actorsystem-akka.actor.default-dispatcher-2] [akka://mortar-http-server-actorsystem/user/waiting-actor] Job id -1503752762 for machine localhost done!
+
+2017-05-22 08:17:13 [main] mortar.server.Server.start()
+INFO: Server shutdown!
+[DEBUG] [05/22/2017 08:17:13.818] [mortar-http-server-actorsystem-akka.actor.default-dispatcher-2] [akka://mortar-http-server-actorsystem/system/IO-TCP/selectors/$a/0] Unbinding endpoint /127.0.0.1:9000
+[DEBUG] [05/22/2017 08:17:13.819] [mortar-http-server-actorsystem-akka.actor.default-dispatcher-2] [akka://mortar-http-server-actorsystem/system/IO-TCP/selectors/$a/0] Unbound endpoint /127.0.0.1:9000, stopping listener
+[DEBUG] [05/22/2017 08:17:13.837] [mortar-http-server-actorsystem-akka.actor.default-dispatcher-8] [akka://mortar-http-server-actorsystem/system/IO-TCP/selectors/$a/1] Monitored actor [Actor[akka://mortar-http-server-actorsystem/user/StreamSupervisor-0/$$b#812291639]] terminated
+[DEBUG] [05/22/2017 08:17:13.846] [mortar-http-server-actorsystem-akka.actor.default-dispatcher-9] [EventStream] shutting down: StandardOutLogger started
+
+Process finished with exit code 0
+
