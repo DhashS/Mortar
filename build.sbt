@@ -16,21 +16,16 @@ libraryDependencies ++= Seq(
   "com.lambdista" %% "config-typesafe" % "0.5.1",
   "org.tinylog" % "tinylog" % "1.2",
   "org.scalaj" %% "scalaj-http" % "2.3.0",
-  "org.bouncycastle" % "bcpg-jdk14" % "1.55",
   "org.typelevel" %% "squants" % "1.2.0",
   "net.sourceforge.argparse4j" % "argparse4j" % "0.7.0",
   "com.cedarsoftware" % "json-io" % "4.9.12",
   "com.typesafe.akka" %% "akka-http" % "10.0.5",
   "com.typesafe.akka" %% "akka-http-spray-json" % "10.0.5",
-  "com.typesafe.akka" %% "akka-cluster" % "2.5.1",
-  "com.typesafe.akka" %% "akka-distributed-data" % "2.5.1",
   "com.typesafe.akka" %% "akka-persistence" % "2.5.1",
   "com.typesafe.akka" %% "akka-persistence-tck" % "2.5.1",
   "com.typesafe.akka" %% "akka-remote" % "2.5.1",
   "org.iq80.leveldb" % "leveldb" % "0.9",
   "org.fusesource.leveldbjni" % "leveldbjni-all" % "1.8",
-  "com.hootsuite" %% "akka-persistence-redis" % "0.7.0",
-  "com.spotify" % "docker-client" % "3.5.13",
   "com.cedarsoftware" % "json-io" % "4.9.12"
 )
 

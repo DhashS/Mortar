@@ -5,13 +5,16 @@ import akka.routing.ConsistentHashingRouter.ConsistentHashable
 import spray.json._
 import squants.information.{Bytes, Information}
 
+import scala.concurrent.duration.Duration
+import java.time.Instant
+
 //Case classes to define application
 case class ApplicationConfig(app: AppConfig,
                              remote: List[RemoteMachine],
                              local: LocalMachine) //,
 //rsync: RSyncConfig)
 
-case class AppConfig(port: Int, maxSpace: Option[String])
+case class AppConfig(port: Int, maxSpace: Option[String]) // In Squants units
 
 case class ServerSecurity(luksCipher: String,
                           luksHash: String,
@@ -30,26 +33,39 @@ case class RemoteMachine(
 
 case class LocalMachine(uname: String,
                         recvPath: String,
+                        backupPath: String,
                         sec: ServerSecurity,
                         maxSpace: String,
                         known_hosts: Option[Boolean]) //TODO
 
-final case class MortarRequest(key: String, space: Information, path: String) // TODO remove key in favor of GETting from remote server
+final case class MortarRequest(
+    key: String,
+    space: Information,
+    path: String,
+    id: Int)
+final case class MortarStatus(key: String, id: Int)
 
-case class RDiffRequest(machine: RemoteMachine, req: MortarRequest, id: Int)
+case class RDiffRequest(machine: RemoteMachine, req: MortarRequest)
     extends ConsistentHashable {
   override def consistentHashKey: String = machine.pubkey
 }
 
-case class RDiffDone(req: RDiffRequest)
-case class RDiffFailure(req: RDiffRequest)
+
+case class TransferDone(req: RDiffRequest)
+case class TransferFailure(req: RDiffRequest)
 case class MachineRequest()
 case class ConfigRequest()
 case class SpaceRequest(machine: RemoteMachine, req: MortarRequest)
-case class Cmd(data: RemoteMachine)
 case class NewJob(data: RDiffRequest)
 case class JobDone(data: RDiffRequest)
 case class LogLine(line: String)
+
+
+case class BackupStatus(machine: RemoteMachine, when: Instant)
+
+case class BackupDone(machine: RemoteMachine)
+case class BackupStarted(machine: RemoteMachine)
+case class StartBackupJob(machine: RemoteMachine)
 
 trait MortarJsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
   implicit object InformationJsonFormat extends RootJsonFormat[Information] {
@@ -62,5 +78,6 @@ trait MortarJsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
 
     override def write(obj: Information) = JsNumber(obj.toBytes)
   }
-  implicit val MortarRequestFmt = jsonFormat3(MortarRequest)
+  implicit val MortarRequestFmt = jsonFormat4(MortarRequest)
+  implicit val MortarStatusFmt = jsonFormat2(MortarStatus)
 }
