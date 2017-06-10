@@ -61,6 +61,10 @@ object Util {
       throw new ConfigSyntaxException(
         s"No recieving path folder exists at ${config.local.recvPath}")
     }
+    val backup_path = new File(config.local.backupPath)
+    if (!(backup_path.exists && backup_path.isDirectory)) {
+      throw new ConfigSyntaxException(s"The folder which is to be backed up (${config.local.backupPath}) does not exist!")
+    }
     config
   }
   def getConfig(implicit context: ActorContext): ApplicationConfig = {

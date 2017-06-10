@@ -1,13 +1,15 @@
 package mortar.server
 
-import java.io.File
+import java.io.{File, IOException}
 import java.time.Instant
 
 import akka.actor.{Actor, ActorSystem, _}
 import akka.http.scaladsl.Http
+import akka.http.scaladsl.model.MediaTypes._
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.BasicHttpCredentials
 import akka.http.scaladsl.server.{Directives, Route}
+import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.pattern.ask
 import akka.persistence._
 import akka.routing.ConsistentHashingPool
@@ -17,19 +19,14 @@ import mortar.spec._
 import mortar.util.Util.getConfig
 import mortar.util.{ConfigActor, Json}
 import org.pmw.tinylog.Logger
+import spray.json._
 import squants.information.Bytes
-
-import HttpProtocols._
-import MediaTypes._
-import HttpCharsets._
-
-import java.io.IOException
-import scala.util.Random
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
-import scala.io.StdIn
+import scala.io.{Source, StdIn}
 import scala.sys.process.{Process, ProcessLogger}
+import scala.util.Random
 
 object Server {
   // needed to run the route
@@ -38,12 +35,6 @@ object Server {
   // needed for the future map/flatmap in the end
   implicit val executionContext: ExecutionContext = system.dispatcher
   implicit val timeout = Timeout(60.seconds)
-  private val waitingActor =
-    system.actorOf(Props[WaitingActor], "waiting-actor")
-  private val loggingActor = system.actorOf(Props[LogActor], "logging-actor")
-  private val spaceActor =
-    system.actorOf(Props[FreeSpaceActor], "free-space-actor")
-  system.actorOf(Props[JobRouterActor], "router-actor")
 
 }
 class Server(config: ApplicationConfig)
@@ -55,7 +46,21 @@ class Server(config: ApplicationConfig)
    */
 
   import Server._
-  system.actorOf(Props(new ConfigActor(config)), "config-actor")
+  system.actorOf(Props(new ConfigActor(config)), "config-actor") // Spin up configuration
+  val backupHandlerActor =
+    system.actorOf(Props[BackupHandlerActor], "backup-handler-actor")
+  private val waitingActor =
+    system.actorOf(Props[WaitingActor], "waiting-actor")
+  private val loggingActor = system.actorOf(Props[LogActor], "logging-actor")
+  system.actorOf(Props[JobRouterActor], "router-actor")
+  private val spaceActor =
+    system.actorOf(Props[FreeSpaceActor], "free-space-actor")
+  // The kickstart loop for Quartz-scheduler to handle backups
+
+  //config.remote.map( machine =>
+//
+  //)
+
   loggingActor ! LogLine("Actors initialized")
 
   def start(): Unit = {
@@ -79,14 +84,14 @@ class Server(config: ApplicationConfig)
                 val isSpace =
                   Await.result((spaceActor ? SpaceRequest(machine, req))
                                  .mapTo[Boolean],
-                               60.seconds)
+                               config.app.timeout.seconds)
                 if (isSpace) {
                   // make sure there is a distinct id for the request, shared across client and server
                   val inProcessIds =
                     Await.result((waitingActor ? MachineRequest)
                                    .mapTo[List[RDiffRequest]]
                                    .map(lst => lst.map(_.req.id)),
-                                 60.seconds)
+                                 config.app.timeout.seconds)
                   if (inProcessIds.contains(req.id)) {
                     complete(StatusCodes.Locked) // There is an ID conflict, it's up to the client to resolve
                   }
@@ -119,7 +124,7 @@ class Server(config: ApplicationConfig)
                              .mapTo[List[RDiffRequest]]
                              .map(lst => lst.map(_.req.id))
                              .filter(_ == req.id),
-                           60.seconds) match {
+                           config.app.timeout.seconds) match {
                 case List() =>
                   complete(StatusCodes.NotFound) //TODO does this work
                 case List(_) => complete(StatusCodes.Found)
@@ -128,7 +133,12 @@ class Server(config: ApplicationConfig)
           }
         } ~
         path("pubkey") {
-          complete(config.local.sec.ssh.pub)
+          complete(
+            Source.fromFile(new File(config.local.sec.ssh.pub)).mkString)
+        } ~
+        path("debug") {
+          backupHandlerActor ! StartBackupJob(config.remote.head)
+          complete("OK")
         }
     route
   }
@@ -155,6 +165,7 @@ class WaitingActor extends PersistentActor with ActorLogging {
   the requests are restarted as well
    */
   import Server.timeout
+  val config = getConfig
 
   val receiveRecover: Receive = {
     case evt: NewJob => AddJob(evt)
@@ -197,7 +208,7 @@ class WaitingActor extends PersistentActor with ActorLogging {
   }
   private val JobRouter = Await.result(
     context.actorSelection("/user/router-actor").resolveOne,
-    60.seconds)
+    config.app.timeout.seconds)
   private var state = WaitingJobsState()
 
   override def persistenceId = "waiting-actor"
@@ -235,7 +246,7 @@ case class BackupState(
      */
     copy(
       (commands._1.dropWhile(_.machine == command.machine),
-       commands._1.find(_.machine == command.machine).get :: commands._2))
+       BackupStatus(command.machine, Instant.now()) :: commands._2))
   }
 
   def done(command: BackupDone): BackupState = {
@@ -249,7 +260,15 @@ case class BackupState(
   }
 }
 
-class BackupHandlerActor extends PersistentActor with ActorLogging {
+class BackupHandlerActor
+    extends PersistentActor
+    with ActorLogging
+    with MortarJsonSupport {
+  /*
+  This actor is responsible for starting a backup from the current machine (client) to another, remote machine
+  (server). This handles request creation and auth, and starts a backup request to a remote machine only via an
+  external scheduler.
+   */
   import Server._
 
   val receiveRecover: Receive = {
@@ -260,13 +279,19 @@ class BackupHandlerActor extends PersistentActor with ActorLogging {
   val receiveCommand: Receive = {
     case job: StartBackupJob => {
       val config = getConfig
-      val other_uri = s"http://${job.machine.hostname}/"
+      println("recvd job request")
+      val other_uri = s"http://${job.machine.hostname}:9000" //TODO port, but should be resolved by dockerizing
+      val plain_pubkey_auth =
+        headers.Authorization(
+          BasicHttpCredentials(config.local.uname, config.local.sec.ssh.pub))
       val other_pubkey = Await.result(
         Http().singleRequest(
-          HttpRequest(method = HttpMethods.GET, uri = other_uri + "pubkey")),
-        60.seconds) match {
+          HttpRequest(method = HttpMethods.GET,
+                      uri = other_uri + "/pubkey",
+                      headers = List(plain_pubkey_auth))),
+        config.app.timeout.seconds) match {
         case HttpResponse(StatusCodes.OK, _, entity, _) =>
-          entity.dataBytes.toString() //TODO does this get me pubkey
+          Unmarshal(entity).to[String] //TODO does this get me pubkey
         case resp @ HttpResponse(code, _, msg, _) =>
           val err =
             s"Pubkey request to ${job.machine.hostname} failed with code $code, $msg, aborting backup request"
@@ -274,24 +299,26 @@ class BackupHandlerActor extends PersistentActor with ActorLogging {
           resp.discardEntityBytes()
           throw new IOException(err)
       }
+      val my_key = Source.fromFile(config.local.sec.ssh.pub).mkString.trim
       persist(BackupStarted(job.machine)) { event =>
         log.debug(s"Persisting message ${Json.fromObject(event)}")
-        val mortarReq = MortarRequest(key = config.local.sec.ssh.pub,
+        val mortarReq = MortarRequest(key = my_key,
                                       space = Bytes(12),
                                       path = s"${config.local.backupPath}",
                                       id = Random.nextInt())
-        val auth = List(
-          headers.Authorization(
-            BasicHttpCredentials(
-              config.local.uname,
-              config.local.sec.ssh.pub))) //TODO swap with the job id signed with this machine's privkey and crypted with the other's pubkey
+        val req_specific_auth =
+          headers.Authorization(BasicHttpCredentials(
+            config.local.uname,
+            config.local.sec.ssh.pub)) //TODO swap with the job id signed with this machine's privkey and crypted with the other's pubkey
+
+        val built_req = mortarReq.toJson.toString
 
         Http().singleRequest(
           HttpRequest(
             method = HttpMethods.POST,
-            uri = s"http://${event.machine.hostname}/backup",
-            headers = auth,
-            entity = HttpEntity(`application/json`, mortarReq.toString) //TODO does the tostring emit json
+            uri = s"$other_uri/backup",
+            //headers = List(req_specific_auth), TODO auth on the reciving side
+            entity = HttpEntity(`application/json`, built_req)
           )) // TODO
         AddJob(event)
         saveSnapshot(state)
@@ -354,7 +381,7 @@ class TransferActor extends Actor with ActorLogging {
 
       val mortarWaitingActor = Await.result(
         context.actorSelection("/user/waiting-actor").resolveOne,
-        60.seconds)
+        config.app.timeout.seconds)
       val logger = ProcessLogger(
         line => log.info(s"STDOUT for ${rdr.machine.hostname}: $line"),
         line => log.error(s"STDERR for ${rdr.machine.hostname}: $line"))
@@ -413,13 +440,13 @@ class FreeSpaceActor extends Actor with ActorLogging {
     case req: SpaceRequest => {
       val mortarWaitingActor = Await.result(
         context.actorSelection("/user/waiting-actor").resolveOne(),
-        60.seconds)
+        config.app.timeout.seconds)
 
       var totalSpaceInTransit = Bytes(0)
 
       val inProgress = Await.result(
         (mortarWaitingActor ? MachineRequest).mapTo[List[RDiffRequest]],
-        60.seconds)
+        config.app.timeout.seconds)
       if (inProgress.nonEmpty) {
         totalSpaceInTransit = inProgress
           .map(x => x.req.space)

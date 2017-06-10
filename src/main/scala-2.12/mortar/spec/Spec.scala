@@ -14,7 +14,9 @@ case class ApplicationConfig(app: AppConfig,
                              local: LocalMachine) //,
 //rsync: RSyncConfig)
 
-case class AppConfig(port: Int, maxSpace: Option[String]) // In Squants units
+case class AppConfig(port: Int,
+                     maxSpace: Option[String], // In Squants units
+                     timeout: Int) // In seconds
 
 case class ServerSecurity(luksCipher: String,
                           luksHash: String,
