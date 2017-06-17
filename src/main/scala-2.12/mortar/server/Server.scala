@@ -26,7 +26,8 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
 import scala.io.{Source, StdIn}
 import scala.sys.process.{Process, ProcessLogger}
-import scala.util.Random
+
+import java.util.UUID
 
 object Server {
   // needed to run the route
@@ -134,7 +135,7 @@ class Server(config: ApplicationConfig)
         } ~
         path("pubkey") {
           complete(
-            Source.fromFile(new File(config.local.sec.ssh.pub)).mkString)
+            Source.fromFile(new File(config.local.sec.ssh.pub)).mkString.trim)
         } ~
         path("debug") {
           backupHandlerActor ! StartBackupJob(config.remote.head)
@@ -300,31 +301,56 @@ class BackupHandlerActor
           throw new IOException(err)
       }
       val my_key = Source.fromFile(config.local.sec.ssh.pub).mkString.trim
-      persist(BackupStarted(job.machine)) { event =>
-        log.debug(s"Persisting message ${Json.fromObject(event)}")
-        val mortarReq = MortarRequest(key = my_key,
-                                      space = Bytes(12),
-                                      path = s"${config.local.backupPath}",
-                                      id = Random.nextInt())
-        val req_specific_auth =
-          headers.Authorization(BasicHttpCredentials(
-            config.local.uname,
-            config.local.sec.ssh.pub)) //TODO swap with the job id signed with this machine's privkey and crypted with the other's pubkey
 
-        val built_req = mortarReq.toJson.toString
+      val mortarReq = MortarRequest(key = my_key,
+                                    space = Bytes(12),
+                                    path = s"${config.local.backupPath}",
+                                    id = UUID.randomUUID()) //TODO UUID
+      val req_specific_auth =
+        headers.Authorization(BasicHttpCredentials(
+          config.local.uname,
+          config.local.sec.ssh.pub)) //TODO swap with the job id signed with this machine's privkey and crypted with the other's pubkey
 
+      Http().singleRequest(
+        HttpRequest(
+          method = HttpMethods.GET,
+          uri = s"http://localhost:${config.app.port}/pubkey")) // TODO HTTPS
+      // TODO HttpBasicAuth
+
+      val built_req = mortarReq.toJson.toString // TODO request from local HTTP route rather than config
+
+      val backup_resp = Await.result(
         Http().singleRequest(
           HttpRequest(
             method = HttpMethods.POST,
             uri = s"$other_uri/backup",
             //headers = List(req_specific_auth), TODO auth on the reciving side
             entity = HttpEntity(`application/json`, built_req)
-          )) // TODO
-        AddJob(event)
-        saveSnapshot(state)
-        log.debug("Message persisted!")
-        log.debug(
-          s"Starting remote backup request to ${event.machine.hostname}")
+          )),
+        config.app.timeout.seconds
+      ) match {
+        case HttpResponse(StatusCodes.Accepted, _, _, _) => {
+          log.debug("Backup request successfully submitted")
+          persist(BackupStarted(job.machine)) { event =>
+            log.debug(s"Persisting message ${Json.fromObject(event)}")
+            AddJob(event)
+            saveSnapshot(state)
+            log.debug("Message persisted!")
+            log.debug(
+              s"Starting remote backup request to ${event.machine.hostname}")
+          }
+        }
+        case HttpResponse(StatusCodes.Locked, _, _, _) => {
+          log.debug("Retry immedeatley, all went well but the UUID is locked")
+          self ! job
+        }
+        case HttpResponse(StatusCodes.InsufficientStorage, _, _, _) => {
+          log.debug("no space left, send email")
+        }
+        case HttpResponse(StatusCodes.Forbidden, _, _, _) => {
+          log.debug(
+            "HTTP Basic auth failed, this will never work now, send an email")
+        }
       }
     }
   }

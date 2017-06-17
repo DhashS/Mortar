@@ -5,8 +5,8 @@ import akka.routing.ConsistentHashingRouter.ConsistentHashable
 import spray.json._
 import squants.information.{Bytes, Information}
 
-import scala.concurrent.duration.Duration
 import java.time.Instant
+import java.util.UUID
 
 //Case classes to define application
 case class ApplicationConfig(app: AppConfig,
@@ -40,18 +40,16 @@ case class LocalMachine(uname: String,
                         maxSpace: String,
                         known_hosts: Option[Boolean]) //TODO
 
-final case class MortarRequest(
-    key: String,
-    space: Information,
-    path: String,
-    id: Int)
+final case class MortarRequest(key: String,
+                               space: Information,
+                               path: String,
+                               id: UUID)
 final case class MortarStatus(key: String, id: Int)
 
 case class RDiffRequest(machine: RemoteMachine, req: MortarRequest)
     extends ConsistentHashable {
   override def consistentHashKey: String = machine.pubkey
 }
-
 
 case class TransferDone(req: RDiffRequest)
 case class TransferFailure(req: RDiffRequest)
@@ -61,7 +59,6 @@ case class SpaceRequest(machine: RemoteMachine, req: MortarRequest)
 case class NewJob(data: RDiffRequest)
 case class JobDone(data: RDiffRequest)
 case class LogLine(line: String)
-
 
 case class BackupStatus(machine: RemoteMachine, when: Instant)
 
@@ -74,11 +71,21 @@ trait MortarJsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
     override def read(json: JsValue): Information = json match {
       case JsNumber(size) => Bytes(size)
       case _ =>
-        deserializationError(
+        throw deserializationError(
           "Need an Information, provide a bare JSON number of Bytes")
     }
 
     override def write(obj: Information) = JsNumber(obj.toBytes)
+  }
+  implicit object UUIDJsonFormat extends RootJsonFormat[UUID] {
+    override def read(json: JsValue): UUID = json match {
+      case JsString(uuid) => UUID.fromString(uuid)
+      case _ =>
+        throw deserializationError(
+          "Need a UUID, provide a bare JSON string that is a UUID")
+    }
+
+    override def write(obj: UUID) = JsString(obj.toString)
   }
   implicit val MortarRequestFmt = jsonFormat4(MortarRequest)
   implicit val MortarStatusFmt = jsonFormat2(MortarStatus)

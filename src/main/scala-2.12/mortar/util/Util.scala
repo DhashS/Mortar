@@ -19,6 +19,7 @@ import org.pmw.tinylog.Logger
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.collection.JavaConverters._
 
 object Util {
   def config(fpath: Path): ApplicationConfig = {
@@ -91,10 +92,8 @@ class ConfigActor(config: ApplicationConfig) extends Actor with ActorLogging {
 }
 
 object Json {
-  import scala.collection.JavaConverters.mapAsJavaMap
+
   def fromObject(obj: Object): String = {
-    JsonWriter.objectToJson(obj,
-                            mapAsJavaMap(Map(JsonWriter.PRETTY_PRINT -> true))
-                              .asInstanceOf[java.util.Map[String, Object]])
+    JsonWriter.objectToJson(obj,Map[String, Object](JsonWriter.PRETTY_PRINT -> Boolean.box(true)).asJava)
   }
 }
