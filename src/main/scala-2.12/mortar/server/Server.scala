@@ -17,7 +17,7 @@ import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import mortar.spec._
 import mortar.util.Util.getConfig
-import mortar.util.{ConfigActor, Json}
+import mortar.util.{Json, EchoActor}
 import org.pmw.tinylog.Logger
 import spray.json._
 import squants.information.Bytes
@@ -47,7 +47,7 @@ class Server(config: ApplicationConfig)
    */
 
   import Server._
-  system.actorOf(Props(new ConfigActor(config)), "config-actor") // Spin up configuration
+  system.actorOf(Props(new EchoActor(config)), "config-actor") // Spin up configuration
   val backupHandlerActor =
     system.actorOf(Props[BackupHandlerActor], "backup-handler-actor")
   private val waitingActor =
@@ -94,7 +94,7 @@ class Server(config: ApplicationConfig)
                                    .map(lst => lst.map(_.req.id)),
                                  config.app.timeout.seconds)
                   if (inProcessIds.contains(req.id)) {
-                    complete(StatusCodes.Locked) // There is an ID conflict, it's up to the client to resolve
+                    complete { HttpResponse(StatusCodes.Locked) } // There is an ID conflict, it's up to the client to resolve
                   }
                   machine.security match {
                     case "container" =>
@@ -102,9 +102,9 @@ class Server(config: ApplicationConfig)
                     case "sync" =>
                       //TODO support different backends
                       waitingActor ! RDiffRequest(machine, req) //Add to Actor system queue
-                      complete(StatusCodes.Accepted)
+                      complete { HttpResponse(StatusCodes.Accepted) }
                     case _ =>
-                      complete(machine.toString) //echo since this should never happen
+                      complete { machine.toString } //echo since this should never happen
                     //TODO make this never happen
                   }
                 } else {
@@ -134,8 +134,13 @@ class Server(config: ApplicationConfig)
           }
         } ~
         path("pubkey") {
-          complete(
-            Source.fromFile(new File(config.local.sec.ssh.pub)).mkString.trim)
+          complete {
+            HttpResponse(StatusCodes.OK,
+                         entity = Source
+                           .fromFile(new File(config.local.sec.ssh.pub))
+                           .mkString
+                           .trim)
+          }
         } ~
         path("debug") {
           backupHandlerActor ! StartBackupJob(config.remote.head)

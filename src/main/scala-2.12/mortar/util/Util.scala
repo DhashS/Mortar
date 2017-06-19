@@ -80,6 +80,17 @@ object Util {
   }
 }
 
+class EchoActor(obj: Object) extends Actor with ActorLogging {
+  /*
+  Generalization of putting compile or runtime variables in the actorsystem
+   */
+  override def receive: Receive = {
+    case _ => {
+      sender ! obj
+    }
+  }
+}
+
 class ConfigActor(config: ApplicationConfig) extends Actor with ActorLogging {
   /*
   This is a simple actor to distribute the application configuration object on demand to other actors
