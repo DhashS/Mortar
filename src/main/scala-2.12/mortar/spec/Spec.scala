@@ -44,7 +44,7 @@ final case class MortarRequest(key: String,
                                space: Information,
                                path: String,
                                id: UUID)
-final case class MortarStatus(key: String, id: Int)
+final case class MortarStatus(key: String, id: UUID)
 
 case class RDiffRequest(machine: RemoteMachine, req: MortarRequest)
     extends ConsistentHashable {

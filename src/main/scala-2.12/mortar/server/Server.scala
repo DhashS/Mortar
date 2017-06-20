@@ -120,15 +120,18 @@ class Server(config: ApplicationConfig)
           //TODO auth
           //TODO test
           post {
-            entity(as[MortarStatus]) { req =>
-              Await.result((waitingActor ? MachineRequest)
-                             .mapTo[List[RDiffRequest]]
-                             .map(lst => lst.map(_.req.id))
-                             .filter(_ == req.id),
-                           config.app.timeout.seconds) match {
-                case List() =>
+            entity(as[MortarStatus]) { sreq =>
+              val req_uuids = Await
+                .result((waitingActor ? MachineRequest)
+                          .mapTo[List[RDiffRequest]]
+                          .map[List[UUID]](lst => lst.map(_.req.id)),
+                        config.app.timeout.seconds)
+                .find(_ == sreq.id)
+
+              req_uuids match {
+                case Some(uid) => complete(StatusCodes.Found)
+                case None =>
                   complete(StatusCodes.NotFound) //TODO does this work
-                case List(_) => complete(StatusCodes.Found)
               }
             }
           }

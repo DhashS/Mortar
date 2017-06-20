@@ -103,7 +103,6 @@ class ConfigActor(config: ApplicationConfig) extends Actor with ActorLogging {
 }
 
 object Json {
-
   def fromObject(obj: Object): String = {
     JsonWriter.objectToJson(obj,Map[String, Object](JsonWriter.PRETTY_PRINT -> Boolean.box(true)).asJava)
   }
