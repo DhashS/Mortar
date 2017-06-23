@@ -21,15 +21,19 @@ import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.collection.JavaConverters._
 
+import scala.reflect.ClassTag
+
 object Util {
-  def config(fpath: Path): ApplicationConfig = {
+  def MortarConfig(fpath: Path): ApplicationConfig = {
     //grab the config
     val config = try {
       Config
         .from(ConfigFactory.parseFile(fpath.toFile).resolve())
         .get
+        .mortar
         .as[ApplicationConfig]
         .get
+
     } catch {
       case e: ConfigSyntaxException =>
         Logger.error("Could not parse application.conf, not valid HOCON")
@@ -64,28 +68,29 @@ object Util {
     }
     val backup_path = new File(config.local.backupPath)
     if (!(backup_path.exists && backup_path.isDirectory)) {
-      throw new ConfigSyntaxException(s"The folder which is to be backed up (${config.local.backupPath}) does not exist!")
+      throw new ConfigSyntaxException(
+        s"The folder which is to be backed up (${config.local.backupPath}) does not exist!")
     }
     config
   }
   def getConfig(implicit context: ActorContext): ApplicationConfig = {
     import Server._
-
-    Await.result(context
-                   .actorSelection("/user/config-actor")
-                   .resolveOne
-                   .flatMap(_ ? ConfigRequest)
-                   .mapTo[ApplicationConfig],
+    val configActor = Await.result(
+      context.actorSelection("/user/config-actor").resolveOne(),
+      60.seconds)
+    Await.result((configActor ? ConfigRequest).mapTo[ApplicationConfig],
                  60.seconds)
   }
 }
 
-class EchoActor(obj: Object) extends Actor with ActorLogging {
+class EchoActor[T <: Echo: ClassTag](obj: Object)
+    extends Actor
+    with ActorLogging {
   /*
   Generalization of putting compile or runtime variables in the actorsystem
    */
   override def receive: Receive = {
-    case _ => {
+    case msg: T => {
       sender ! obj
     }
   }
@@ -104,6 +109,8 @@ class ConfigActor(config: ApplicationConfig) extends Actor with ActorLogging {
 
 object Json {
   def fromObject(obj: Object): String = {
-    JsonWriter.objectToJson(obj,Map[String, Object](JsonWriter.PRETTY_PRINT -> Boolean.box(true)).asJava)
+    JsonWriter.objectToJson(
+      obj,
+      Map[String, Object](JsonWriter.PRETTY_PRINT -> Boolean.box(true)).asJava)
   }
 }

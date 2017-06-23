@@ -17,17 +17,21 @@ import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import mortar.spec._
 import mortar.util.Util.getConfig
-import mortar.util.{Json, EchoActor}
+import mortar.util.{EchoActor, Json}
 import org.pmw.tinylog.Logger
 import spray.json._
 import squants.information.Bytes
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.Promise
 import scala.io.{Source, StdIn}
 import scala.sys.process.{Process, ProcessLogger}
-
 import java.util.UUID
+
+import scala.util.{Try, Success, Failure}
+
+import akka.http.scaladsl.Http.ServerBinding
 
 object Server {
   // needed to run the route
@@ -36,6 +40,15 @@ object Server {
   // needed for the future map/flatmap in the end
   implicit val executionContext: ExecutionContext = system.dispatcher
   implicit val timeout = Timeout(60.seconds)
+
+  val backupHandlerActor =
+    system.actorOf(Props[BackupHandlerActor], "backup-handler-actor")
+  val waitingActor =
+    system.actorOf(Props[WaitingActor], "waiting-actor")
+  val loggingActor = system.actorOf(Props[LogActor], "logging-actor")
+  system.actorOf(Props[JobRouterActor], "router-actor")
+  val spaceActor =
+    system.actorOf(Props[FreeSpaceActor], "free-space-actor")
 
 }
 class Server(config: ApplicationConfig)
@@ -47,15 +60,16 @@ class Server(config: ApplicationConfig)
    */
 
   import Server._
-  system.actorOf(Props(new EchoActor(config)), "config-actor") // Spin up configuration
-  val backupHandlerActor =
-    system.actorOf(Props[BackupHandlerActor], "backup-handler-actor")
-  private val waitingActor =
-    system.actorOf(Props[WaitingActor], "waiting-actor")
-  private val loggingActor = system.actorOf(Props[LogActor], "logging-actor")
-  system.actorOf(Props[JobRouterActor], "router-actor")
-  private val spaceActor =
-    system.actorOf(Props[FreeSpaceActor], "free-space-actor")
+  val configActor = system.actorOf(Props(new EchoActor[ConfigRequest](config)),
+                                   "config-actor") // Spin up configuration
+  val pubkeyActor = system.actorOf(
+    Props(
+      new EchoActor[PubkeyRequest](
+        Source
+          .fromFile(new File(config.local.sec.ssh.pub))
+          .mkString
+          .trim)))
+
   // The kickstart loop for Quartz-scheduler to handle backups
 
   //config.remote.map( machine =>
@@ -64,15 +78,23 @@ class Server(config: ApplicationConfig)
 
   loggingActor ! LogLine("Actors initialized")
 
+  val binder = Promise[Future[ServerBinding]]
+
   def start(): Unit = {
-    val bind = Http()
+    val bind: Future[ServerBinding] = Http()
       .bindAndHandle(routes(), "localhost", config.app.port) //TODO Https
     loggingActor ! LogLine(s"Server started on port ${config.app.port}")
-    val line = StdIn.readLine() //TODO replace
-    bind
-      .flatMap(_.unbind())
-      .onComplete(_ => system.terminate())
-    Logger.info("Server shutdown!")
+    binder success bind
+  }
+
+  def stop(): Unit = {
+    loggingActor ! LogLine("Stopping server")
+    binder.future onComplete {
+      case Success(bind) =>
+        bind.flatMap(_.unbind()).onComplete(_ => system.terminate())
+      case Failure(e) =>
+        throw e
+    }
   }
 
   def routes(): Route = {
@@ -137,12 +159,11 @@ class Server(config: ApplicationConfig)
           }
         } ~
         path("pubkey") {
+          val my_key = Await
+            .result((pubkeyActor ? PubkeyRequest).mapTo[String],
+                    config.app.timeout.seconds)
           complete {
-            HttpResponse(StatusCodes.OK,
-                         entity = Source
-                           .fromFile(new File(config.local.sec.ssh.pub))
-                           .mkString
-                           .trim)
+            HttpResponse(StatusCodes.OK, entity = my_key)
           }
         } ~
         path("debug") {

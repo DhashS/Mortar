@@ -53,8 +53,14 @@ case class RDiffRequest(machine: RemoteMachine, req: MortarRequest)
 
 case class TransferDone(req: RDiffRequest)
 case class TransferFailure(req: RDiffRequest)
+
 case class MachineRequest()
-case class ConfigRequest()
+
+abstract class Echo()
+case class ConfigRequest() extends Echo
+case class PubkeyRequest() extends Echo
+
+
 case class SpaceRequest(machine: RemoteMachine, req: MortarRequest)
 case class NewJob(data: RDiffRequest)
 case class JobDone(data: RDiffRequest)

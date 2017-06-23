@@ -7,6 +7,8 @@ import mortar.util.Util
 import net.sourceforge.argparse4j.ArgumentParsers
 import org.pmw.tinylog.Logger
 
+import scala.io.StdIn
+
 object Mortar {
 
   def main(args: Array[String]): Unit = {
@@ -23,7 +25,7 @@ object Mortar {
 
     //TODO config modification argument
 
-    val config = Util.config(Paths.get("application.conf"))
+    val config = Util.MortarConfig(Paths.get("application.conf"))
     Logger.trace("Config parsed")
 
     val mortar_authorized_hosts = config.remote
@@ -42,6 +44,9 @@ object Mortar {
 
     val server = new Server(config)
     server.start()
+    val line = StdIn.readLine() //TODO replace
+    println(line)
+    server.stop()
 
     /*
     if (authorized_keys.delete()) {
