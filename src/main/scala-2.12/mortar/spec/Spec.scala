@@ -56,7 +56,7 @@ case class TransferFailure(req: RDiffRequest)
 
 case class MachineRequest()
 
-abstract class Echo()
+abstract class Echo
 case class ConfigRequest() extends Echo
 case class PubkeyRequest() extends Echo
 

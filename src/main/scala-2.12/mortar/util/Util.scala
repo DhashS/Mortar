@@ -78,7 +78,7 @@ object Util {
     val configActor = Await.result(
       context.actorSelection("/user/config-actor").resolveOne(),
       60.seconds)
-    Await.result((configActor ? ConfigRequest).mapTo[ApplicationConfig],
+    Await.result((configActor ? ConfigRequest()).mapTo[ApplicationConfig],
                  60.seconds)
   }
 }
@@ -96,16 +96,6 @@ class EchoActor[T <: Echo: ClassTag](obj: Object)
   }
 }
 
-class ConfigActor(config: ApplicationConfig) extends Actor with ActorLogging {
-  /*
-  This is a simple actor to distribute the application configuration object on demand to other actors
-   */
-  override def receive: Receive = {
-    case ConfigRequest => {
-      sender ! config
-    }
-  }
-}
 
 object Json {
   def fromObject(obj: Object): String = {
