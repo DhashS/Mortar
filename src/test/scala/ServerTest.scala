@@ -1,79 +1,69 @@
-import java.io.File
+package mortar.test.server
+
+import akka.testkit.{ImplicitSender, TestActors, TestKit}
+import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
+import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.concurrent.PatienceConfiguration
+import mortar.server.Server
+import mortar.util.Util
 import java.nio.file.Paths
+
+import scala.io.Source
+import java.io.File
 
 import akka.pattern.ask
 import akka.util.Timeout
-import mortar.server.Server
-import mortar.spec.{ConfigRequest, PubkeyRequest}
-import mortar.util.Util
-import org.scalatest.FlatSpec
-
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
-import scala.util.{Failure, Success}
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.HttpRequest
-
-import scala.io.Source
-
+import mortar.spec._
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.stream.ActorMaterializer
 
-import scala.concurrent.Future
+import scala.concurrent.{Await, Future}
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
+import scala.util.{Failure, Success, Try}
 
+import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.testkit.ScalatestRouteTest
+import akka.http.scaladsl.server._
+import Directives._
 
+import mortar.test.shared.SharedTestInvariants
 
+trait ServerTestkitInvariants extends SharedTestInvariants {}
 
-trait TestInvariants {
-  val config = Util.MortarConfig(Paths.get("application.conf"))
-  implicit val timeout = Timeout(config.app.timeout.seconds)
-  implicit val system = ActorSystem()
+class ServerTest
+    extends TestKit(ActorSystem("ServerTest"))
+    with ServerTestkitInvariants
+    with ImplicitSender {
+
+  implicit val timeout = Timeout(5.seconds)
   implicit val materializer = ActorMaterializer()
-}
 
-class ServerTest extends FlatSpec with TestInvariants {
-  val srv = new Server(config)
-  srv.start()
+  "The server actors" must {
+    "be able to provide the configuration" in {
+      srv.configActor ! ConfigRequest()
+      expectMsg(10.seconds, config)
+    }
+    "be able to provide the pubkey" in {
+      val my_key = Source
+        .fromFile(new File(config.local.sec.ssh.pub))
+        .mkString
+        .trim
+      srv.pubkeyActor ! PubkeyRequest()
+      expectMsg(10.seconds, my_key)
+    }
+  }/*
+  "The backup system" must {
+    "be able to accept a valid request" in {
 
-  "The server" should "have a matching configuration" in {
-    val s = srv.configActor ? ConfigRequest
+    }
+    ""
+  }*/
 
-    s onComplete {
-      case Success(srv) =>
-        assert(srv == config)
-      case Failure(e) =>
-        fail(e)
-    }
-  }
-  it should "have a pubkey" in {
-    val k = (srv.pubkeyActor ? PubkeyRequest).mapTo[String]
-    val my_key = Source
-      .fromFile(new File(config.local.sec.ssh.pub))
-      .mkString
-      .trim
-    k onComplete {
-      case Success(key) =>
-        assert(key == my_key)
-      case Failure(e) =>
-        fail(e)
-    }
-  }
-  it should "serve the pubkey route at /pubkey" in {
-    val k = (srv.pubkeyActor ? PubkeyRequest).mapTo[String]
-    val req = Http().singleRequest(
-      HttpRequest(uri = s"http://localhost:${config.app.port}/pubkey"))
-    req onComplete {
-      case Success(pubkey) =>
-        k onComplete {
-          case Success(cmp_key) =>
-            assert(pubkey.entity.getDataBytes().toString() == cmp_key)
-          case Failure(e) =>
-            fail(e)
-        }
-      case Failure(e) =>
-        fail(e)
-    }
+  override def afterAll(): Unit = {
+    super.afterAll()
+    TestKit.shutdownActorSystem(system)
   }
 }

@@ -4,14 +4,14 @@ version := "1.0"
 
 scalaVersion := "2.12.2"
 
-fork in run := true
+fork := true
 connectInput in run := true
 
 resolvers += Resolver.jcenterRepo
 resolvers += "Artima Maven Repository" at "http://repo.artima.com/releases"
 
 autoCompilerPlugins := true
-
+parallelExecution in test := false
 
 mainClass in Compile := Some("mortar.Mortar")
 
@@ -28,11 +28,13 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-persistence" % "2.5.1",
   "com.typesafe.akka" %% "akka-persistence-tck" % "2.5.1",
   "com.typesafe.akka" %% "akka-remote" % "2.5.1",
+  "com.typesafe.akka" %% "akka-testkit" % "2.5.1",
   "org.iq80.leveldb" % "leveldb" % "0.9",
   "org.fusesource.leveldbjni" % "leveldbjni-all" % "1.8",
   "com.cedarsoftware" % "json-io" % "4.9.12",
   "org.scalactic" %% "scalactic" % "3.0.1",
   "org.scalatest" %% "scalatest" % "3.0.1" % "test",
+  "com.typesafe.akka" %% "akka-http-testkit" % "10.0.9",
   compilerPlugin("com.artima.supersafe" % "supersafe_2.12.2" % "1.1.2")
 )
 
