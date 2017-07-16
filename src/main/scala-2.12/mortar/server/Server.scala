@@ -41,15 +41,6 @@ object Server {
   implicit val executionContext: ExecutionContext = system.dispatcher
   implicit val timeout = Timeout(60.seconds)
 
-  val backupHandlerActor =
-    system.actorOf(Props[BackupHandlerActor], "backup-handler-actor")
-  val waitingActor =
-    system.actorOf(Props[WaitingActor], "waiting-actor")
-  val loggingActor = system.actorOf(Props[LogActor], "logging-actor")
-  system.actorOf(Props[JobRouterActor], "router-actor")
-  val spaceActor =
-    system.actorOf(Props[FreeSpaceActor], "free-space-actor")
-
 }
 class Server(config: ApplicationConfig)
     extends Directives
@@ -70,6 +61,15 @@ class Server(config: ApplicationConfig)
           .mkString
           .trim)))
 
+  val backupHandlerActor =
+    system.actorOf(Props[BackupHandlerActor], "backup-handler-actor")
+  val waitingActor =
+    system.actorOf(Props[WaitingActor], "waiting-actor")
+  val loggingActor = system.actorOf(Props[LogActor], "logging-actor")
+  system.actorOf(Props[JobRouterActor], "router-actor")
+  val spaceActor =
+    system.actorOf(Props[FreeSpaceActor], "free-space-actor")
+
   // The kickstart loop for Quartz-scheduler to handle backups
 
   //config.remote.map( machine =>
@@ -77,7 +77,6 @@ class Server(config: ApplicationConfig)
   //)
 
   loggingActor ! LogLine("Actors initialized")
-
   val binder = Promise[Future[ServerBinding]]
 
   def start(): Unit = {
@@ -89,6 +88,7 @@ class Server(config: ApplicationConfig)
 
   def stop(): Unit = {
     loggingActor ! LogLine("Stopping server")
+
     binder.future onComplete {
       case Success(bind) =>
         bind.flatMap(_.unbind()).onComplete(_ => system.terminate())
